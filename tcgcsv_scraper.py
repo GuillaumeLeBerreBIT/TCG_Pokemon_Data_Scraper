@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 class TCGCSVScraper:
     
@@ -18,10 +19,31 @@ class TCGCSVScraper:
         else:
             print(f"Error: Unable to fetch page, status code {response.status_code}")
             return None
+        
+    def find_csv_content(self, soup):
+        
+        csv_links = []
+        for details in soup.find_all('details'):
+            category = details.find('summary').get_text(strip=True)
+            for link in details.find_all('a', href=True):
+                href = link['href']
+                if href.endswith('.csv'):
+                    full_url = urljoin(self.url, href)
+                    csv_name = link.get_text(strip=True)
+                    csv_links.append({
+                        'category': category,
+                        'name': csv_name,
+                        'url': full_url
+                    })
+        return csv_links
+        
     
     def download_csv(self):
         pass
     
     def parser(self):
-        self.create_soup_obj()
+        
+        soup = self.create_soup_obj()
+        
+        content = self.find_csv_content(soup)
         
