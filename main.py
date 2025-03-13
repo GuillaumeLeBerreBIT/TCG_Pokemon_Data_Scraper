@@ -1,3 +1,4 @@
+import os
 from tcgcsv_scraper import TCGCSVScraper
 
 if __name__ == '__main__':
