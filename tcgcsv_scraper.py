@@ -126,8 +126,8 @@ class TCGCSVScraper:
             self.cursor.executemany("""
                 INSERT INTO pokemon VALUES (
                     ?,?,?,?,?,?,?,?,?,?,?,
-                    ?,?,?,?,?,?,?,?,?,?,
-                    ?,?,?,?,?,?,?
+                    ?,?,?,?,?,?,?,?,?,?,?,
+                    ?,?,?,?,?,?
                 )
             """, data_to_insert)
             # Either commit the changes when all is succesfull.
@@ -205,7 +205,7 @@ class TCGCSVScraper:
         csv_dict = self.find_csv(data)
         csv_data = self.parse_csv_data(csv_dict)
         
-        return csv_data
+        self.close()
         
         
         
