@@ -27,7 +27,7 @@ class TCGCSVScraper:
         # Initialize database
         self.conn = sqlite3.connect(self.db)
         self.cursor = self.conn.cursor()
-        self.create_table(self.cursor)
+        self.create_table()
         
         # Create output directory if it doesn't exist
         if not os.path.exists(output_dir):
@@ -106,7 +106,7 @@ class TCGCSVScraper:
                     
                     # Parse in the data to the SQL function
                     if rows:
-                        self.insert_data(set_name, set_id, rows)
+                        self.insert_data_with_mapping(set_name, set_id, rows)
                         
                                         
                 except requests.exceptions.RequestException as e:
@@ -117,11 +117,37 @@ class TCGCSVScraper:
                     
         return csv_data
     
-    def insert_data(self, set_name, set_id, rows):
+    def insert_data_with_mapping(self, set_name, set_id, rows):
         # Prepare the data to send to the database. Create list of tuples 
+        
+        if len(rows) <= 1:
+            print(f"No data to insert for {set_name}")
+            return 
+        
+        csv_header = [col.lower() for col in rows[0]]
+        
+        db_columns = self.return_column_names()
+        
+        column_mapping = {}
+        for db_col in db_columns:
+            # Try to find matching column in CSV (case-insensitive)
+            db_col_lower = db_col.lower()
+            
+            # Check for exact match first
+            if db_col_lower in csv_header:
+                column_mapping[db_col] = csv_header.index(db_col_lower)
+            # Try partial match
+            else:
+                matches = [i for i, col in enumerate(csv_header) if db_col_lower in col]
+                if matches:
+                    column_mapping[db_col] = matches[0]
+        
+        print(f"Found mappings for {len(column_mapping)} out of {len(db_columns)} columns")
+        
         data_to_insert = [
             (set_name, set_id) + tuple(row) for row in rows[1:]
         ]
+        
         try:
             self.cursor.executemany("""
                 INSERT INTO pokemon VALUES (
@@ -140,12 +166,28 @@ class TCGCSVScraper:
     
     def close(self):
         self.conn.close()
+        
+    def return_column_names(self):
+        """
+        Return the headers of the database
+        """
+        data = self.cursor.execute("""
+                             SELECT * FROM pokemon LIMIT 1
+                             """)
+        headers = []
+        for col in data.description:
+            
+            if not headers:
+                headers = col[0]
+            
+        return headers
+        
     
-    def create_table(self, cursor):
+    def create_table(self):
         """
         Create table to contain the data
         """
-        cursor.execute("""
+        self.cursor.execute("""
                     CREATE TABLE IF NOT EXISTS pokemon (
                         setName TEXT,
                         setId INTEGER,
@@ -174,7 +216,8 @@ class TCGCSVScraper:
                         directLowPrice REAL,
                         subTypeName TEXT,
                         extAttack2 TEXT,
-                        extResistance TEXT
+                        extResistance TEXT,
+                        extAttack3 TEXT
                     )
                     """)
         
