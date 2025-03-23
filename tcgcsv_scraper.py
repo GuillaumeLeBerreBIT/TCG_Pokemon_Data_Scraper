@@ -135,6 +135,7 @@ class TCGCSVScraper:
             
             # Check for exact match first
             if db_col_lower in csv_header:
+                # The Key is the column name & The value is the index of the column in the rows list/array.
                 column_mapping[db_col] = csv_header.index(db_col_lower)
             # Try partial match
             else:
@@ -142,22 +143,39 @@ class TCGCSVScraper:
                 if matches:
                     column_mapping[db_col] = matches[0]
         
-        print(f"Found mappings for {len(column_mapping)} out of {len(db_columns)} columns")
-        
-        data_to_insert = [
-            (set_name, set_id) + tuple(row) for row in rows[1:]
-        ]
+        print(f"Found mappings for {len(column_mapping)} out of {len(db_columns)-2} columns")
         
         try:
-            self.cursor.executemany("""
-                INSERT INTO pokemon VALUES (
-                    ?,?,?,?,?,?,?,?,?,?,?,
-                    ?,?,?,?,?,?,?,?,?,?,?,
-                    ?,?,?,?,?,?
-                )
-            """, data_to_insert)
-            # Either commit the changes when all is succesfull.
-            self.conn.commit()
+            
+            for row in rows[1:]:
+                
+                row_data = {'setName': set_name, 'setId': set_id}
+                
+                # Map values from CSV to appropriate database columns
+                for col_db, csv_index in column_mapping.items():
+                    if csv_index < len(row):
+                        # Fil in the row dictionary with key as volumn name and data as value, using the index to find the value matching the column name in the row data.
+                        row_data[col_db] = row[csv_index]
+                        
+                # Fill in missing columns with empty strings
+                for col_db in db_columns:
+                    if col_db not in row_data:
+                        row_data[col_db] = ""
+                            
+                # ordered_values = [row_data['setName'], row_data['setId']]
+                # Retrieve the values from the dictionary.
+                ordered_values = [row_data[col] for col in db_columns]
+                test_tuple= tuple(ordered_values)     
+                print(f'The {set_name} trying to inject into the database.')
+                self.cursor.execute("""
+                    INSERT INTO pokemon VALUES (
+                        ?,?,?,?,?,?,?,?,?,?,?,
+                        ?,?,?,?,?,?,?,?,?,?,?,
+                        ?,?,?,?,?,?,?
+                    )
+                """, tuple(ordered_values))
+                # Either commit the changes when all is succesfull.
+                self.conn.commit()
             
         except sqlite3.Error as e:
             print(f"Database error: {str(e)}")
@@ -177,8 +195,8 @@ class TCGCSVScraper:
         headers = []
         for col in data.description:
             
-            if not headers:
-                headers = col[0]
+            if col not in headers:
+                headers.append(col[0])
             
         return headers
         
