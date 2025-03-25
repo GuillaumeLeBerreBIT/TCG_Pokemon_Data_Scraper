@@ -1,5 +1,6 @@
 import sqlite3
 import requests
+from io import BytesIO
 
 class VideoCreation:
     
@@ -16,36 +17,72 @@ class VideoCreation:
         self.conn = sqlite3.connect(self.db)
         self.cursor = self.conn.cursor()
         
-        def query_cards(self, set_name):
-            """
-            Querry the database for the top 10 most expensive cards for a Set. 
+    def query_cards(self, set_name):
+        """
+        Querry the database for the top 10 most expensive cards for a Set. 
 
-            Args:
-                set_name (_type_): _description_
-            """
+        Args:
+            set_name (_type_): _description_
+        """
+        
+        self.cursor.execute("""
+            SELECT name, imageUrl, lowPrice, midPrice, highPrice, marketPrice
+            FROM pokemon 
+            WHERE setName = ? 
+            AND extNumber IS NOT '' 
+            AND extCardType IS NOT ''
+            ORDER BY marketPrice DESC
+            LIMIT 10
+        """, (set_name,)
+        )
+        
+        return self.cursor.fetchall()
+    
+    def download_images(self, cards_list):
+        """
+        Donwload the images
+        """
+        cards_dictionary = {}
+        for card in cards_list:
             
-            self.cursor.execute("""
-                SELECT name, imageUrl, lowPrice, midPrice, highPrice, marketPrice
-                FROM pokemon 
-                WHERE setName = ?
-                ORDER BY marketPrice DESC
-                LIMIT 10
-            """, (set_name)
-            )
+            name, imageUrl, lowPrice, midPrice, highPrice, marketPrice = card
             
-            return self.cursor.fetchall()
+            response = requests.get(url=card[1], headers=self.headers)
             
-        def process_cards(self, cards_list):
-            """
-            Create a picture of each card with the market price on it. 
+            if response.status_code == 200:
+                img_bytes = BytesIO(response.content)
+                cards_dictionary[name] = {
+                    'imageUrl': imageUrl,
+                    'lowPrice': lowPrice,
+                    'midPrice': midPrice,
+                    'highPrice': highPrice,
+                    'marketPrice': marketPrice,
+                    'imgBytes': img_bytes,
+                }
+                
+        return cards_dictionary
+            
+        
+    def process_cards(self, cards_dict):
+        """
+        Create a picture of each card with the market price on it. 
 
-            Args:
-                cards_list (_type_): _description_
-            """
+        Args:
+            cards_list (_type_): _description_
+        """
+        
+    def build_clip(self):
+        """
+        Create a one minute long clip of pokemon cards. 
+        """
+        
+        cards_list = self.query_cards('Base Set')
+        
+        cards_dictionary = self.download_images(cards_list)
+        
+        self.process_cards(cards_dictionary)
             
-        def build_clip(self):
-            """
-            
-            """
-            
-            card_list = self.query_cards('')
+if __name__ == '__main__':
+    
+    video_creation = VideoCreation()
+    video_creation.build_clip()
