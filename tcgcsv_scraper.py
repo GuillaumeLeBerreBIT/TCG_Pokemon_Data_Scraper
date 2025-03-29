@@ -237,18 +237,7 @@ class TCGCSVScraper:
                         extResistance TEXT,
                         extAttack3 TEXT
                     )
-                    """)
-        
-        def insert_data(self, cursor, data):
-            """
-            Insert the TCG data into the the pokomen table
-
-            Args:
-                cursor (_type_): _description_
-                data (_type_): _description_
-            """
-            
-        
+                    """)       
                     
     
     def parser(self, save_to_file=True):
