@@ -5,9 +5,11 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import os
 from moviepy import ImageClip, concatenate_videoclips
 # Import the proper fade effects
-from moviepy.video.fx import CrossFadeIn, CrossFadeOut
+from moviepy.video.fx import CrossFadeIn, CrossFadeOut, FadeOut, FadeIn
 from moviepy.video.compositing import CompositeVideoClip
 from moviepy import *
+from moviepy.video.tools.drawing import circle
+import numpy as np
 
 class VideoCreation:
     
@@ -185,6 +187,45 @@ class VideoCreation:
         # Draw main text on top
         draw.text((x, y), text, font=font, fill=text_color)
         
+    def create_composite_clip(self, processed_images, set_name):
+        """
+        Create a full clip using all processed images. 
+
+        Args:
+            processed_images (_type_): _description_
+        """
+        # Define duration parameters
+        clip_duration = 7  # Seconds each clip stays (including fade time)
+        fade_duration = 1  # Seconds for fade effects
+
+        clips = []
+        for i, img_path in enumerate(processed_images):
+            # Create base clip with full duration
+            clip = ImageClip(img_path).with_duration(clip_duration)
+            
+            # Apply transitions conditionally
+            if i > 0:  # Only apply fade-in to non-first clips
+                clip = CrossFadeIn(fade_duration).apply(clip)
+            if i < len(processed_images)-1:  # Only apply fade-out to non-last clips
+                clip = CrossFadeOut(fade_duration).apply(clip)
+            
+            # Calculate staggered start time with overlap
+            start_time = i * (clip_duration - fade_duration)
+            
+            # Position clip in composition
+            clip = clip.with_start(start_time)
+            clips.append(clip)
+
+        # Create final composite with overlapping clips
+        final_video = CompositeVideoClip(clips)
+
+        # Calculate total duration properly
+        total_duration = (len(processed_images)-1)*(clip_duration-fade_duration) + clip_duration
+        final_video = final_video.with_duration(total_duration)
+        
+        # Write the final video
+        final_video.write_videofile(f'final_video/top_10_pokemon_cards_{set_name.replace(' ', '_')}.mp4', fps=24)
+        
     def build_clip(self):
         """
         Create a one minute long clip of pokemon cards.
@@ -202,42 +243,8 @@ class VideoCreation:
         # Process cards and get image paths
         processed_images = self.process_cards(cards_dictionary)
         
-        # Define duration parameters
-        clip_duration = 6  # Seconds each clip stays (including fade time)
-        fade_duration = 1  # Seconds for fade effects
-        
-        crossfadein = CrossFadeIn(fade_duration)
-        crossfadeout = CrossFadeOut(fade_duration)
+        self.create_composite_clip(processed_images, set_name)
 
-        clips = []
-        for i, img_path in enumerate(processed_images):
-            # Create image clip with full duration
-            clip = ImageClip(img_path).with_duration(clip_duration)
-            
-            # Apply fadein and fadeout
-            clip = crossfadein.apply(clip)
-            clip = crossfadeout.apply(clip)
-            
-            # Calculate start time with overlap
-            start_time = i * (clip_duration - fade_duration)
-            
-            # Set clip start time in composition
-            clip = clip.with_start(start_time)
-            
-            clips.append(clip)
-
-        # Create composite video with overlapping clips
-        final_video = CompositeVideoClip(clips)
-
-        # Optional: Set explicit duration to avoid abrupt ending
-        total_duration = (len(processed_images) - 1) * (clip_duration - fade_duration) + clip_duration
-        final_video = final_video.with_duration(total_duration)
-        
-        # Concatenate clips in sequence
-        # final_video = concatenate_videoclips(clips, method="compose")
-        
-        # Write the final video
-        final_video.write_videofile(f'final_video/top_10_pokemon_cards_{set_name.replace(' ', '_')}.mp4', fps=24)
         
     def __del__(self):
         """
