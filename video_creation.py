@@ -30,6 +30,9 @@ class VideoCreation:
         # Ensure output directories exist
         os.makedirs('card_images', exist_ok=True)
         os.makedirs('final_video', exist_ok=True)
+        os.makedirs('expansion_images', exist_ok=True)
+        
+        self.expansion_images_dir = './expansion_images/'
         
     def get_expansion_name(self):
         """
@@ -37,16 +40,21 @@ class VideoCreation:
         """
         expansion_set = ''
         expansion_list = []
-        for img in os.listdir('./expansion_images/'):
-            
-            if '-' in img:
-                expansion_list.append(img.split('-')[1])
-            elif '-' not in img:
-                expansion_list.append(img)
-                
-        expansion_name = random.choice(expansion_list)
         
-        return expansion_set
+        expansion_images = [img for img in os.listdir(self.expansion_images_dir) if img.endswith('.jpg') or img.endswith('.png')]
+        
+        expansion_image = random.choice(expansion_images)
+        
+        if '-' in expansion_image:
+            expansion_raw_name = expansion_image.split('-')[1]
+        elif '-' not in expansion_image:
+            expansion_raw_name = expansion_image
+            
+        if expansion_raw_name.startswith('EX_'): expansion_raw_name = expansion_raw_name.replace('EX_', '')
+        
+        expansion_name = os.path.splitext(expansion_raw_name)[0]     
+        
+        return os.path.join(self.expansion_images_dir, expansion_image), expansion_name.replace('_', ' ')
     
     def get_background_image(self):
         """
@@ -269,15 +277,14 @@ class VideoCreation:
         # Load in a set to create the video from
         while not cards_list or len(cards_list) < 10:
             # Get the set_name based on a image.
-            set_name, expansion_image = self.get_expansion_name()
+            expansion_image, set_name = self.get_expansion_name()
             # Retrieve the 
             cards_list = self.query_cards(set_name)
-            
-            
-        header_image = self.create_header_image(expansion_image, background_image)
         
         # Background image
         background_image = self.get_background_image()
+            
+        header_image = self.create_header_image(expansion_image, background_image)
         
         # Download images
         cards_dictionary = self.download_images(cards_list)
