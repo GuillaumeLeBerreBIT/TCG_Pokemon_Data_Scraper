@@ -56,10 +56,10 @@ TRACKLIST = {
     "Title Screen": ("1:44:53", "1:47:28"),
     "Cherrygrove City": ("1:47:28", "1:49:40"),
     "Snowpoint City": ("1:49:40", "1:51:48"),
-    "Surf Pokemon: Sapphire Ruby)": ("1:51:48", "1:53:55"),
+    "Surf Pokemon Sapphire Ruby": ("1:51:48", "1:53:55"),
     "Azalea Town": ("1:53:55", "1:56:06"),
     "Veilstone City": ("1:56:06", "1:58:06"),
-    "Trainer Battle Pokemon: Red Blue Yellow)": ("1:58:06", "1:59:52"),
+    "Trainer Battle Pokemon Red Blue Yellow": ("1:58:06", "1:59:52"),
     "Verdanturf Town": ("1:59:52", "2:01:56"),
     "Viridian Forest": ("2:01:56", "2:04:02"),
     "Violet City N Olivine City": ("2:04:02", None)  # Last track, no end time
