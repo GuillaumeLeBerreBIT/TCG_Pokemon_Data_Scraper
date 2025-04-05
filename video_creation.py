@@ -3,6 +3,7 @@ import requests
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import os
+import random
 from moviepy import ImageClip, concatenate_videoclips
 # Import the proper fade effects
 from moviepy.video.fx import CrossFadeIn, CrossFadeOut, FadeOut, FadeIn
@@ -30,6 +31,33 @@ class VideoCreation:
         os.makedirs('card_images', exist_ok=True)
         os.makedirs('final_video', exist_ok=True)
         
+    def get_expansion_name(self):
+        """
+        Get a random Image name from the expansion list.
+        """
+        expansion_set = ''
+        expansion_list = []
+        for img in os.listdir('./expansion_images/'):
+            
+            if '-' in img:
+                expansion_list.append(img.split('-')[1])
+            elif '-' not in img:
+                expansion_list.append(img)
+                
+        expansion_name = random.choice(expansion_list)
+        
+        return expansion_set
+    
+    def get_background_image(self):
+        """
+        Get the background image for all the cards.
+        """
+        
+        images = [f for f in os.listdir('./backgrounds') if f.endswith(('.jpg', '.png'))]
+        
+        return os.path.join('./backgrounds', random.choice(images))
+        
+                
     def query_cards(self, set_name):
         """
         Query the database for the top 10 most expensive cards for a Set.
@@ -84,8 +112,15 @@ class VideoCreation:
                 }
 
         return dict(sorted(cards_dictionary.items()))
+    
+    def create_header_image(self, image_name):
+        """
+
+        Args:
+            image_name (_type_): _description_
+        """
             
-    def process_cards(self, cards_dict):
+    def process_cards(self, cards_dict, background_image):
         """
         Create a picture of each card with the market price on it.
 
@@ -97,7 +132,7 @@ class VideoCreation:
         """
         
         # Load background image and apply blur
-        background_img = Image.open('backgrounds/pokemon_town_background_1.jpg')
+        background_img = Image.open(background_image)
         blurred_background = background_img.filter(ImageFilter.GaussianBlur(radius=10))
         # Get the size of the background.
         b_width, b_height = blurred_background.size
@@ -230,18 +265,25 @@ class VideoCreation:
         """
         Create a one minute long clip of pokemon cards.
         """
-        
+        cards_list = []
         # Load in a set to create the video from
-        set_name = 'Base Set'
+        while not cards_list or len(cards_list) < 10:
+            # Get the set_name based on a image.
+            set_name, expansion_image = self.get_expansion_name()
+            # Retrieve the 
+            cards_list = self.query_cards(set_name)
+            
+            
+        header_image = self.create_header_image(expansion_image, background_image)
         
-        # Query cards
-        cards_list = self.query_cards('Base Set')
+        # Background image
+        background_image = self.get_background_image()
         
         # Download images
         cards_dictionary = self.download_images(cards_list)
         
         # Process cards and get image paths
-        processed_images = self.process_cards(cards_dictionary)
+        processed_images = self.process_cards(cards_dictionary, background_image)
         
         self.create_composite_clip(processed_images, set_name)
 

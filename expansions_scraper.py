@@ -1,7 +1,7 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-from expansions_list import HTML
+from extra.expansions_list import HTML
 class ExpansionsScraper:
     
     def __init__(self, output_dir = "expansion_images"):
@@ -34,7 +34,7 @@ class ExpansionsScraper:
             
         return image_sources
     
-    def download_image(self, image_url, filename=None):
+    def download_image(self, image_url, imagename=None):
         """Download an image from a URL and save it to the output directory."""
         try:
             # Make URL absolute if it's relative
@@ -48,18 +48,19 @@ class ExpansionsScraper:
             response.raise_for_status()  # Raise an exception for HTTP errors
             
             # Generate filename if not provided
-            if not filename:
+            if not imagename:
                 # Extract filename from URL or create a unique one
                 path = os.path.basename(image_url.split('?')[0])  # Remove query parameters
                 if not path or path == '':
                     # If no filename in URL, create one based on the URL
                     path = f"expansion_{hash(image_url) % 10000}.jpg"
             else:
-                path = filename
+                path = imagename
             
             # Save the image
             file_path = os.path.join(self.output_dir, path)
             with open(file_path, 'wb') as f:
+                # Loop over the image data in chunks. Write each chunk to a file. 
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
             
@@ -81,7 +82,7 @@ class ExpansionsScraper:
             downloaded_count = 0
             for i, (alt, source) in enumerate(image_sources.items()):
                 filename = f"{alt}.jpg"
-                if self.download_image(source, filename):
+                if self.download_image(source, filename.replace(' ', '_').replace('__', '_').replace('—', '-')):
                     downloaded_count += 1
             
             print(f"\nDownloaded {downloaded_count} out of {len(image_sources.keys())} images successfully.")

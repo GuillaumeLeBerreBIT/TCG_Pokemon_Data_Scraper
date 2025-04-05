@@ -5,7 +5,7 @@
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
-            "program": "C:/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/expansions_scraper.py",
+            "program": "C:/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/video_creation.py",
             "console": "integratedTerminal",
             "python": "${workspaceFolder}/venv/Scripts/python.exe"
         }
