@@ -6,12 +6,10 @@ import os
 import random
 from moviepy import ImageClip, concatenate_videoclips
 # Import the proper fade effects
-from moviepy.video.fx import CrossFadeIn, CrossFadeOut, FadeOut, FadeIn
+from moviepy.video.fx import CrossFadeIn, CrossFadeOut
 from moviepy.video.compositing import CompositeVideoClip
 from moviepy import *
-from moviepy.video.tools.drawing import circle
-import numpy as np
-
+from datetime import datetime
 class VideoCreation:
     
     def __init__(self):
@@ -38,8 +36,6 @@ class VideoCreation:
         """
         Get a random Image name from the expansion list.
         """
-        expansion_set = ''
-        expansion_list = []
         
         expansion_images = [img for img in os.listdir(self.expansion_images_dir) if img.endswith('.jpg') or img.endswith('.png')]
         
@@ -108,6 +104,7 @@ class VideoCreation:
             response = requests.get(url=imageUrl, headers=self.headers)
             
             if response.status_code == 200:
+                # Here already in Bytes can direclty save it to BytesIO
                 img_bytes = BytesIO(response.content)
                 cards_dictionary[int(marketPrice)] = {
                     'imageUrl': imageUrl,
@@ -121,12 +118,66 @@ class VideoCreation:
 
         return dict(sorted(cards_dictionary.items()))
     
-    def create_header_image(self, image_name):
+    def create_header_image(self, background_path, expansion_path):
         """
 
         Args:
             image_name (_type_): _description_
         """
+        
+        background_img = Image.open(background_path)
+        width, heigth = background_img.size
+        
+        try:
+            # Load a font type specific to Pokemon styled theme
+            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 70)
+        except IOError:
+            font_type_large = ImageFont.load_default()
+            
+        fillcolor = (255,255,255)
+        shadowcolor = 'black'
+        
+        expansion_image = Image.open(expansion_path)
+        
+        expansion_width = int(width * 0.6)
+        # Calculate height based on original aspect ratio
+        expansion_height = int(expansion_width * (expansion_image.height / expansion_image.width))
+
+        expansion_image_res = expansion_image.resize((expansion_width, expansion_height), Image.LANCZOS)
+        
+        x_offset = (width - expansion_width) // 2
+        y_offset = (heigth - expansion_height) // 2
+        
+        final_img = background_img.copy()
+        
+        # Paste the card onto the background
+        final_img.paste(expansion_image_res, (x_offset, y_offset))
+        
+        # Create a drawing context
+        draw = ImageDraw.Draw(expansion_image_res)
+        
+        # Get current month and year or use a specific date
+        current_date = datetime.now()
+        date_string = current_date.strftime("%B %Y")  # Format as "January 2025"
+
+        # Create the text with the formatted date
+        header_text = f"Prices {date_string}"
+        
+        text_width = draw.textlength(header_text, font=font_type_large)
+        
+        x = (width - text_width) //2
+        y = 50
+        
+        self.create_text_border(draw, x, y, font_type_large, header_text, fillcolor, shadowcolor)
+        
+        # Create a bytes buffer
+        img_byte_arr = BytesIO()
+        # Save the image to the bytes buffer in a specific format (e.g., PNG or JPEG)
+        final_img.save(img_byte_arr, format='PNG')  # or 'JPEG'
+        # Seek to the beginning of the buffer
+        img_byte_arr.seek(0)
+        # Return the BytesIO object
+        return img_byte_arr
             
     def process_cards(self, cards_dict, background_image):
         """
@@ -217,7 +268,7 @@ class VideoCreation:
             text_color (_type_): _description_
             shadow_color (_type_): _description_
         """
-        # Draw border (8 surrounding positions)
+        # Draw border (8 surrounding positions) > Stretch the text out on all sides to create a border.
         draw.text((x - 4, y), text, font=font, fill=shadow_color)  # Left
         draw.text((x + 4, y), text, font=font, fill=shadow_color)  # Right
         draw.text((x, y - 4), text, font=font, fill=shadow_color)  # Up
@@ -230,18 +281,22 @@ class VideoCreation:
         # Draw main text on top
         draw.text((x, y), text, font=font, fill=text_color)
         
-    def create_composite_clip(self, processed_images, set_name):
+    def create_composite_clip(self, header_img, processed_images, set_name):
         """
         Create a full clip using all processed images. 
 
         Args:
-            processed_images (_type_): _description_
+            processed_images (_type_): _description_    
         """
         # Define duration parameters
         clip_duration = 7  # Seconds each clip stays (including fade time)
         fade_duration = 1  # Seconds for fade effects
 
         clips = []
+        
+        clip = ImageClip(header_img).with_duration(clip_duration)
+        
+        
         for i, img_path in enumerate(processed_images):
             # Create base clip with full duration
             clip = ImageClip(img_path).with_duration(clip_duration)
@@ -292,10 +347,10 @@ class VideoCreation:
         # Process cards and get image paths
         processed_images = self.process_cards(cards_dictionary, background_image)
         
-        self.create_composite_clip(processed_images, set_name)
+        self.create_composite_clip(header_image, processed_images, set_name)
 
         
-    def __del__(self):
+    def __close__(self):
         """
         Close database connection
         """
