@@ -170,14 +170,9 @@ class VideoCreation:
         
         self.create_text_border(draw, x, y, font_type_large, header_text, fillcolor, shadowcolor)
         
-        # Create a bytes buffer
-        img_byte_arr = BytesIO()
-        # Save the image to the bytes buffer in a specific format (e.g., PNG or JPEG)
-        final_img.save(img_byte_arr, format='PNG')  # or 'JPEG'
-        # Seek to the beginning of the buffer
-        img_byte_arr.seek(0)
-        # Return the BytesIO object
-        return img_byte_arr
+        final_img = final_img.convert('RGB')  # Convert from RGBA to RGB
+        final_img.save(f'./card_images/expansion_image.jpg')
+        
             
     def process_cards(self, cards_dict, background_image):
         """
@@ -281,7 +276,7 @@ class VideoCreation:
         # Draw main text on top
         draw.text((x, y), text, font=font, fill=text_color)
         
-    def create_composite_clip(self, header_img, processed_images, set_name):
+    def create_composite_clip(self, processed_images, set_name):
         """
         Create a full clip using all processed images. 
 
@@ -294,16 +289,18 @@ class VideoCreation:
 
         clips = []
         
-        clip = ImageClip(header_img).with_duration(clip_duration)
+        header_clip = ImageClip('./card_images/expansion_image.jpg').with_duration(clip_duration)
+        header_clip = CrossFadeIn(fade_duration).apply(header_clip)
+        header_clip = CrossFadeOut(fade_duration).apply(header_clip)
         
+        clips.append(header_clip)
         
         for i, img_path in enumerate(processed_images):
             # Create base clip with full duration
             clip = ImageClip(img_path).with_duration(clip_duration)
             
             # Apply transitions conditionally
-            if i > 0:  # Only apply fade-in to non-first clips
-                clip = CrossFadeIn(fade_duration).apply(clip)
+            clip = CrossFadeIn(fade_duration).apply(clip)
             if i < len(processed_images)-1:  # Only apply fade-out to non-last clips
                 clip = CrossFadeOut(fade_duration).apply(clip)
             
@@ -318,7 +315,7 @@ class VideoCreation:
         final_video = CompositeVideoClip(clips)
 
         # Calculate total duration properly
-        total_duration = (len(processed_images)-1)*(clip_duration-fade_duration) + clip_duration
+        total_duration = len(processed_images)*(clip_duration-fade_duration) + clip_duration
         final_video = final_video.with_duration(total_duration)
         
         # Write the final video
@@ -339,7 +336,7 @@ class VideoCreation:
         # Background image
         background_image = self.get_background_image()
             
-        header_image = self.create_header_image(expansion_image, background_image)
+        self.create_header_image(expansion_image, background_image)
         
         # Download images
         cards_dictionary = self.download_images(cards_list)
@@ -347,7 +344,7 @@ class VideoCreation:
         # Process cards and get image paths
         processed_images = self.process_cards(cards_dictionary, background_image)
         
-        self.create_composite_clip(header_image, processed_images, set_name)
+        self.create_composite_clip(processed_images, set_name)
 
         
     def __close__(self):
