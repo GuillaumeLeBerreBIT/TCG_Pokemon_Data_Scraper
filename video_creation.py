@@ -110,7 +110,8 @@ class VideoCreation:
             if response.status_code == 200:
                 # Here already in Bytes can direclty save it to BytesIO
                 img_bytes = BytesIO(response.content)
-                cards_dictionary[int(marketPrice)] = {
+                price = marketPrice if marketPrice else midPrice
+                cards_dictionary[int(price)] = {
                     'imageUrl': imageUrl,
                     'lowPrice': lowPrice,
                     'midPrice': midPrice,
@@ -254,7 +255,8 @@ class VideoCreation:
             self.create_text_border(draw, (self.width - name_width) // 2, 200, font_type_large, name, fillcolor, shadowcolor)
             
             # # Add market price
-            price_text = f"Market Price: ${card['marketPrice']:.2f}"
+            price = card['marketPrice'] if card['marketPrice'] else card['midPrice']
+            price_text = f"Market Price: ${price:.2f}"
             price_width = draw.textlength(price_text, font=font_type_large)
             
             self.create_text_border(draw, (self.width - price_width) // 2,  self.height - 300, font_type_large, price_text, fillcolor, shadowcolor)
@@ -312,6 +314,7 @@ class VideoCreation:
         clips.append(header_clip)
         
         for i, img_path in enumerate(processed_images):
+            # Need to take in advance the header image
             i += 1
             # Create base clip with full duration
             clip = ImageClip(img_path).with_duration(clip_duration)
@@ -335,8 +338,55 @@ class VideoCreation:
         total_duration = len(processed_images)*(clip_duration-fade_duration) + clip_duration
         final_video = final_video.with_duration(total_duration)
         
+        audio_path = self.get_audio(total_duration)
+        
+        final_video = final_video.with_audio(AudioFileClip(audio_path).subclipped(0, total_duration))
+        
         # Write the final video
         final_video.write_videofile(f'final_video/top_10_pokemon_cards_{set_name.replace(' ', '_')}.mp4', fps=24)
+        
+    def get_audio(self, total_duration):
+        """
+        Find the audio file to add onto the Composite video clip.
+
+        Args:
+            total_duraiton (_type_): _description_
+        """
+        
+        music_folder = [s for s in os.listdir('./music/') if s.endswith('.mp4')]
+        
+        if music_folder:
+            
+            song_path = os.path.join('./music/', random.choice(music_folder))
+            song, _ = os.path.splitext(os.path.basename(song_path))
+            
+            if song_path.endswith('.mp4'):
+                
+                video = VideoFileClip(song_path)
+                audio = video.audio
+                audio_path = f'./temp/music/{song}.mp3'
+                audio.write_audiofile(audio_path)
+                video.close()
+                
+            else:
+                audio = AudioClip(song_path)
+            
+            # Adjust the audio duration
+            if audio.duration < total_duration:
+                
+                repeats = int(total_duration // audio.duration) + 1
+                audio_segments = repeats * [audio]
+                
+                from moviepy import concatenate_audioclips
+                looped_audio = concatenate_audioclips(audio_segments)
+                audio = looped_audio.subclipped(0, total_duration)
+            
+            else:
+                
+                audio = audio.subclipped(0, total_duration)
+                
+            return audio_path
+                
         
     def build_clip(self):
         """
