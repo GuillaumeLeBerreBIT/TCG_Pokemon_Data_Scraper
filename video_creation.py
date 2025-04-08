@@ -32,6 +32,10 @@ class VideoCreation:
         
         self.expansion_images_dir = './expansion_images/'
         
+        #Portrait sizes
+        self.width = 1080
+        self.height = 1980
+        
     def get_expansion_name(self):
         """
         Get a random Image name from the expansion list.
@@ -120,58 +124,71 @@ class VideoCreation:
     
     def create_header_image(self, background_path, expansion_path):
         """
-
-        Args:
-            image_name (_type_): _description_
-        """
+        Creates a header image with the expansion logo centered on a background
         
+        Args:
+            background_path: Path to background image
+            expansion_path: Path to expansion logo image
+        """
+        # Load and resize background to portrait dimensions
         background_img = Image.open(background_path)
-        width, heigth = background_img.size
+        background_img = background_img.resize((self.width, self.height), Image.LANCZOS)
+        
+        # Load expansion image
+        expansion_image = Image.open(expansion_path)
+        
+        # Calculate sizes to maintain aspect ratio
+        expansion_width = int(self.width * 0.6)
+        expansion_height = int(expansion_width * (expansion_image.height / expansion_image.width))
+        expansion_image_res = expansion_image.resize((expansion_width, expansion_height), Image.LANCZOS)
+        
+        # Center the expansion image on the background
+        x_offset = (self.width - expansion_width) // 2
+        y_offset = (self.height - expansion_height) // 2
+        
+        # Create a copy of the background to work with
+        final_img = background_img.copy()
+        
+        if expansion_image_res.mode == 'RGBA':
+            # Paste the expansion image onto the background >> USe the orignal expansion image as Mask source value.
+            # If the background if the image has an alpha value of 0 then it will be ignored during the pasting. Otherwise 255 will be complete Opaque.
+            final_img.paste(expansion_image_res, (x_offset, y_offset), expansion_image_res)
+        else:
+            final_img.paste(expansion_image_res, (x_offset, y_offset))
+        # Create drawing context on the FINAL image (not the expansion image)
+        draw = ImageDraw.Draw(final_img)
         
         try:
             # Load a font type specific to Pokemon styled theme
             font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 70)
         except IOError:
             font_type_large = ImageFont.load_default()
-            
-        fillcolor = (255,255,255)
+        
+        # Set text colors
+        fillcolor = (255, 255, 255)
         shadowcolor = 'black'
         
-        expansion_image = Image.open(expansion_path)
-        
-        expansion_width = int(width * 0.6)
-        # Calculate height based on original aspect ratio
-        expansion_height = int(expansion_width * (expansion_image.height / expansion_image.width))
-
-        expansion_image_res = expansion_image.resize((expansion_width, expansion_height), Image.LANCZOS)
-        
-        x_offset = (width - expansion_width) // 2
-        y_offset = (heigth - expansion_height) // 2
-        
-        final_img = background_img.copy()
-        
-        # Paste the card onto the background
-        final_img.paste(expansion_image_res, (x_offset, y_offset))
-        
-        # Create a drawing context
-        draw = ImageDraw.Draw(expansion_image_res)
-        
-        # Get current month and year or use a specific date
+        # Get current month and year
         current_date = datetime.now()
-        date_string = current_date.strftime("%B %Y")  # Format as "January 2025"
-
-        # Create the text with the formatted date
+        date_string = current_date.strftime("%B %Y")
+        
+        # Create the header text
         header_text = f"Prices {date_string}"
         
+        # Calculate text position (centered horizontally, near top vertically)
         text_width = draw.textlength(header_text, font=font_type_large)
+        x = (self.width - text_width) // 2
+        y = 50  # Top margin
         
-        x = (width - text_width) //2
-        y = 50
-        
+        # Add text with border effect to the final image
         self.create_text_border(draw, x, y, font_type_large, header_text, fillcolor, shadowcolor)
         
-        final_img = final_img.convert('RGB')  # Convert from RGBA to RGB
-        final_img.save(f'./card_images/expansion_image.jpg')
+        header_image_path = './card_images/expansion_image.jpg'
+        # Save as RGB (removing alpha channel if present)
+        final_img = final_img.convert('RGB')
+        final_img.save('./card_images/expansion_image.jpg')
+        
+        return header_image_path
         
             
     def process_cards(self, cards_dict, background_image):
@@ -188,8 +205,7 @@ class VideoCreation:
         # Load background image and apply blur
         background_img = Image.open(background_image)
         blurred_background = background_img.filter(ImageFilter.GaussianBlur(radius=10))
-        # Get the size of the background.
-        b_width, b_height = blurred_background.size
+        blurred_background = blurred_background.resize((self.width, self.height), Image.LANCZOS)
         
         try:
             # Load a font type specific to Pokemon styled theme
@@ -213,7 +229,7 @@ class VideoCreation:
             card_count = 10 - i
             
             # Resize card image to fit nicely on background
-            card_width = int(b_width * 0.6)
+            card_width = int(self.width * 0.6)
             card_height = int(card_width * (card_img.height / card_img.width))
             card_img_resized = card_img.resize((card_width, card_height), Image.LANCZOS)
             
@@ -221,8 +237,8 @@ class VideoCreation:
             final_img = blurred_background.copy()
             
             # Calculate position to center the card
-            x_offset = (b_width - card_width) // 2
-            y_offset = (b_height - card_height) // 2
+            x_offset = (self.width - card_width) // 2
+            y_offset = (self.height - card_height) // 2
             
             # Paste the card onto the background
             final_img.paste(card_img_resized, (x_offset, y_offset))
@@ -235,13 +251,13 @@ class VideoCreation:
             # Add card name with border
             name_width = draw.textlength(name, font=font_type_large)
             
-            self.create_text_border(draw, (b_width - name_width) // 2, 200, font_type_large, name, fillcolor, shadowcolor)
+            self.create_text_border(draw, (self.width - name_width) // 2, 200, font_type_large, name, fillcolor, shadowcolor)
             
             # # Add market price
             price_text = f"Market Price: ${card['marketPrice']:.2f}"
             price_width = draw.textlength(price_text, font=font_type_large)
             
-            self.create_text_border(draw, (b_width - price_width) // 2,  b_height - 300, font_type_large, price_text, fillcolor, shadowcolor)
+            self.create_text_border(draw, (self.width - price_width) // 2,  self.height - 300, font_type_large, price_text, fillcolor, shadowcolor)
             
             # Save the final image
             output_path = f'card_images/{name}_price.jpg'
@@ -296,6 +312,7 @@ class VideoCreation:
         clips.append(header_clip)
         
         for i, img_path in enumerate(processed_images):
+            i += 1
             # Create base clip with full duration
             clip = ImageClip(img_path).with_duration(clip_duration)
             
@@ -336,7 +353,7 @@ class VideoCreation:
         # Background image
         background_image = self.get_background_image()
             
-        self.create_header_image(expansion_image, background_image)
+        self.create_header_image(background_image, expansion_image)
         
         # Download images
         cards_dictionary = self.download_images(cards_list)
