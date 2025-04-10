@@ -83,6 +83,7 @@ class VideoCreation:
             WHERE setName = ? 
             AND extNumber IS NOT '' 
             AND extCardType IS NOT ''
+            AND (marketPrice IS NOT '' OR midPrice is NOT '')
             ORDER BY marketPrice DESC
             LIMIT 10
         """, (set_name,)
@@ -139,7 +140,7 @@ class VideoCreation:
         expansion_image = Image.open(expansion_path)
         
         # Calculate sizes to maintain aspect ratio
-        expansion_width = int(self.width * 0.6)
+        expansion_width = int(self.width * 0.95)
         expansion_height = int(expansion_width * (expansion_image.height / expansion_image.width))
         expansion_image_res = expansion_image.resize((expansion_width, expansion_height), Image.LANCZOS)
         
@@ -161,7 +162,7 @@ class VideoCreation:
         
         try:
             # Load a font type specific to Pokemon styled theme
-            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 70)
+            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 150)
         except IOError:
             font_type_large = ImageFont.load_default()
         
@@ -179,7 +180,7 @@ class VideoCreation:
         # Calculate text position (centered horizontally, near top vertically)
         text_width = draw.textlength(header_text, font=font_type_large)
         x = (self.width - text_width) // 2
-        y = 50  # Top margin
+        y = 500  # Top margin
         
         # Add text with border effect to the final image
         self.create_text_border(draw, x, y, font_type_large, header_text, fillcolor, shadowcolor)
@@ -187,9 +188,16 @@ class VideoCreation:
         header_image_path = './card_images/expansion_image.jpg'
         # Save as RGB (removing alpha channel if present)
         final_img = final_img.convert('RGB')
-        final_img.save('./card_images/expansion_image.jpg')
+        final_img.save('./temp/images/expansion_image.jpg')
         
         return header_image_path
+    
+    def create_ending_image(self):
+        """
+        Create the last image to displat int he cards list. 
+        """
+        
+        pass
         
             
     def process_cards(self, cards_dict, background_image):
@@ -210,10 +218,8 @@ class VideoCreation:
         
         try:
             # Load a font type specific to Pokemon styled theme
-            font_type_small = ImageFont.truetype('./font/Bangers-Regular.ttf', 40)
-            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 70)
+            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 120)
         except IOError:
-            font_type_small = ImageFont.load_default()
             font_type_large = ImageFont.load_default()
             
         fillcolor = (255,255,255)
@@ -227,10 +233,10 @@ class VideoCreation:
             # Get the name of the Image
             name = card['name']
             # Get the count
-            card_count = 10 - i
+            card_count = len(cards_dict.keys()) - i
             
             # Resize card image to fit nicely on background
-            card_width = int(self.width * 0.6)
+            card_width = int(self.width * 0.8)
             card_height = int(card_width * (card_img.height / card_img.width))
             card_img_resized = card_img.resize((card_width, card_height), Image.LANCZOS)
             
@@ -252,7 +258,7 @@ class VideoCreation:
             # Add card name with border
             name_width = draw.textlength(name, font=font_type_large)
             
-            self.create_text_border(draw, (self.width - name_width) // 2, 200, font_type_large, name, fillcolor, shadowcolor)
+            self.create_text_border(draw, (self.width - name_width) // 2, 220, font_type_large, name, fillcolor, shadowcolor)
             
             # # Add market price
             price = card['marketPrice'] if card['marketPrice'] else card['midPrice']
@@ -261,8 +267,8 @@ class VideoCreation:
             
             self.create_text_border(draw, (self.width - price_width) // 2,  self.height - 300, font_type_large, price_text, fillcolor, shadowcolor)
             
-            # Save the final image
-            output_path = f'card_images/{name}_price.jpg'
+            # Save the final image > remove backslashes otherwise incomplete paths. 
+            output_path = f'card_images/{name.replace('/', '-')}_PRICE_CARD.jpg'
             final_img.save(output_path)
             processed_images.append(output_path)
         
@@ -307,7 +313,7 @@ class VideoCreation:
 
         clips = []
         
-        header_clip = ImageClip('./card_images/expansion_image.jpg').with_duration(clip_duration)
+        header_clip = ImageClip('./temp/images/expansion_image.jpg').with_duration(clip_duration)
         header_clip = CrossFadeIn(fade_duration).apply(header_clip)
         header_clip = CrossFadeOut(fade_duration).apply(header_clip)
         
