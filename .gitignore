@@ -8,3 +8,4 @@ card_images
 backgrounds
 expansion_images
 *.json
+.env
