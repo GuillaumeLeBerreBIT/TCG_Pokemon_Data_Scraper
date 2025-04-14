@@ -1,5 +1,6 @@
 from dotenv import dotenv_values
 import requests
+import os 
 
 class UploadContent:
     
@@ -8,9 +9,11 @@ class UploadContent:
         self.config = dotenv_values('.env')
         self.content = content
         self.headers = {
-            'Authorization': f'Bearer {self.config['ACCES_TOKEN']}',
+            'Authorization': f'Bearer {self.config['ACCESS_TOKEN']}',
             'Content-Type': 'application/json'
         }
+        
+        self.videosize = os.path.getsize(self.content)
     
     def extract_upload_info(self):
         """
@@ -22,12 +25,13 @@ class UploadContent:
             url = 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/'
             data = {
                 "source": "FILE_UPLOAD",
-                "video_size": "exampleVideoSize",  # Replace with actual size as integer
-                "chunk_size": "exampleVideoSize",  # Replace with actual size as integer
+                "video_size": self.videosize,  # Replace with actual size as integer
+                "chunk_size": 10000,  # Replace with actual size as integer
                 "total_chunk_count": 1
             }
             
             response = requests.post(url=url, json=data, headers=self.headers)
+            print('')
             response.raise_for_status()
             
             
@@ -40,8 +44,7 @@ class UploadContent:
     
     def upload_to_tiktok(self):
         """
-        
+        Parse the content to TikTok 
         """
-        
+        pass
 
-    

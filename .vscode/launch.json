@@ -2,6 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         
+
+
+        
+        
         
 
 
@@ -15,7 +19,7 @@
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
-            "program": "C:/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/video_creation.py",
+            "program": "C:/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/main.py",
             "console": "integratedTerminal",
             "python": "${workspaceFolder}/venv/Scripts/python.exe"
         }

@@ -36,6 +36,8 @@ class VideoCreation:
         self.width = 1080
         self.height = 1980
         
+        self.background_image = None
+        
     def get_expansion_name(self):
         """
         Get a random Image name from the expansion list.
@@ -124,7 +126,7 @@ class VideoCreation:
 
         return dict(sorted(cards_dictionary.items()))
     
-    def create_header_image(self, background_path, expansion_path):
+    def create_header_image(self, expansion_path):
         """
         Creates a header image with the expansion logo centered on a background
         
@@ -133,7 +135,7 @@ class VideoCreation:
             expansion_path: Path to expansion logo image
         """
         # Load and resize background to portrait dimensions
-        background_img = Image.open(background_path)
+        background_img = Image.open(self.background_image)
         background_img = background_img.resize((self.width, self.height), Image.LANCZOS)
         
         # Load expansion image
@@ -185,22 +187,48 @@ class VideoCreation:
         # Add text with border effect to the final image
         self.create_text_border(draw, x, y, font_type_large, header_text, fillcolor, shadowcolor)
         
-        header_image_path = './card_images/expansion_image.jpg'
+        header_image_path = './temp/images/expansion_image.jpg'
         # Save as RGB (removing alpha channel if present)
         final_img = final_img.convert('RGB')
-        final_img.save('./temp/images/expansion_image.jpg')
+        final_img.save(header_image_path)
         
         return header_image_path
     
-    def create_ending_image(self):
+    def create_ending_image(self, music_name):
         """
         Create the last image to displat int he cards list. 
         """
+        music_list = music_name.split('_')
+        artist = music_list[0]
+        song = ' '.join(c for c in music_list[1:])
         
-        pass
+        name, _ = os.path.splitext(os.path.basename(self.background_image))
+        #ToDo: Need to open the image first
+        bck_img = self.background_image.resize((self.width, self.height), Image.LANCZOS)
         
+        try:
+            # Load a font type specific to Pokemon styled theme
+            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 120)
+        except IOError:
+            font_type_large = ImageFont.load_default()
             
-    def process_cards(self, cards_dict, background_image):
+        fillcolor = (255,255,255)
+        shadowcolor = 'red'
+        
+        draw = ImageDraw(bck_img)
+        
+        text = f'Music by\n{artist}\n{song}'
+        
+        song_width = draw.textlength(text, font_type_large)
+        
+        self.create_text_border(draw, (self.width - song_width) // 2, 220, font_type_large, text, fillcolor, shadowcolor)
+        
+        output = f'temp/images/{song.replace(' ', '_')}_{name.replace(' ', '_')}_ENDING.jpg'
+        bck_img.save(output)
+        
+        return output  
+            
+    def process_cards(self, cards_dict):
         """
         Create a picture of each card with the market price on it.
 
@@ -212,7 +240,7 @@ class VideoCreation:
         """
         
         # Load background image and apply blur
-        background_img = Image.open(background_image)
+        background_img = Image.open(self.background_image)
         blurred_background = background_img.filter(ImageFilter.GaussianBlur(radius=10))
         blurred_background = blurred_background.resize((self.width, self.height), Image.LANCZOS)
         
@@ -300,7 +328,7 @@ class VideoCreation:
         # Draw main text on top
         draw.text((x, y), text, font=font, fill=text_color)
         
-    def create_composite_clip(self, processed_images, set_name):
+    def create_composite_clip(self, header_image, processed_images, set_name):
         """
         Create a full clip using all processed images. 
 
@@ -313,7 +341,7 @@ class VideoCreation:
 
         clips = []
         
-        header_clip = ImageClip('./temp/images/expansion_image.jpg').with_duration(clip_duration)
+        header_clip = ImageClip(header_image).with_duration(clip_duration)
         header_clip = CrossFadeIn(fade_duration).apply(header_clip)
         header_clip = CrossFadeOut(fade_duration).apply(header_clip)
         
@@ -337,6 +365,13 @@ class VideoCreation:
             clip = clip.with_start(start_time)
             clips.append(clip)
 
+        # Get the songname
+        song_path, audio = self.get_music()
+        
+        song_name, _ = os.path.splitext(os.path.basename(song_path))
+        # Get the ending Image
+        ending_image = self.create_ending_image(song_name)
+        
         # Create final composite with overlapping clips
         final_video = CompositeVideoClip(clips)
 
@@ -344,20 +379,14 @@ class VideoCreation:
         total_duration = len(processed_images)*(clip_duration-fade_duration) + clip_duration
         final_video = final_video.with_duration(total_duration)
         
-        audio_path = self.get_audio(total_duration)
+        audio_path = self.get_audio(total_duration, audio, song_name)
         
         final_video = final_video.with_audio(AudioFileClip(audio_path).subclipped(0, total_duration))
         
         # Write the final video
         final_video.write_videofile(f'final_video/top_10_pokemon_cards_{set_name.replace(' ', '_')}.mp4', fps=24)
-        
-    def get_audio(self, total_duration):
-        """
-        Find the audio file to add onto the Composite video clip.
-
-        Args:
-            total_duraiton (_type_): _description_
-        """
+    
+    def get_music(self):
         
         music_folder = [s for s in os.listdir('./music/') if s.endswith('.mp4')]
         
@@ -370,28 +399,42 @@ class VideoCreation:
                 
                 video = VideoFileClip(song_path)
                 audio = video.audio
-                audio_path = f'./temp/music/{song}.mp3'
-                audio.write_audiofile(audio_path)
+                song_path = f'./temp/music/{song}.mp3'
+                audio.write_audiofile(song_path)
                 video.close()
                 
             else:
                 audio = AudioClip(song_path)
+                
+            return song_path, audio
+        
+        return None
+                
+        
+    def get_audio(self, total_duration, audio, song):
+        """
+        Find the audio file to add onto the Composite video clip.
+
+        Args:
+            total_duraiton (_type_): _description_
+        """            
+        # Adjust the audio duration
+        if audio.duration < total_duration:
             
-            # Adjust the audio duration
-            if audio.duration < total_duration:
-                
-                repeats = int(total_duration // audio.duration) + 1
-                audio_segments = repeats * [audio]
-                
-                from moviepy import concatenate_audioclips
-                looped_audio = concatenate_audioclips(audio_segments)
-                audio = looped_audio.subclipped(0, total_duration)
+            repeats = int(total_duration // audio.duration) + 1
+            audio_segments = repeats * [audio]
             
-            else:
-                
-                audio = audio.subclipped(0, total_duration)
-                
-            return audio_path
+            from moviepy import concatenate_audioclips
+            looped_audio = concatenate_audioclips(audio_segments)
+            adjusted_audio = looped_audio.subclipped(0, total_duration)
+        
+        else:
+            
+            adjusted_audio = audio.subclipped(0, total_duration)
+        
+        # Save the adjusted audio to a temporary file
+        adjusted_audio_path = f'./temp/music/{song}_ADJUSTED_AUDIO.mp3'
+        adjusted_audio.write_audiofile(adjusted_audio_path)
                 
         
     def build_clip(self):
@@ -407,17 +450,17 @@ class VideoCreation:
             cards_list = self.query_cards(set_name)
         
         # Background image
-        background_image = self.get_background_image()
+        self.background_image = self.get_background_image()
             
-        self.create_header_image(background_image, expansion_image)
+        header_image_path = self.create_header_image(expansion_image)
         
         # Download images
         cards_dictionary = self.download_images(cards_list)
         
         # Process cards and get image paths
-        processed_images = self.process_cards(cards_dictionary, background_image)
+        processed_images = self.process_cards(cards_dictionary)
         
-        self.create_composite_clip(processed_images, set_name)
+        self.create_composite_clip(header_image_path, processed_images, set_name)
 
         
     def __close__(self):

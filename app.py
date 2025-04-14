@@ -49,7 +49,7 @@ def oauth():
     # Build the TikTok authorization URL
     auth_url = 'https://www.tiktok.com/v2/auth/authorize/'
     auth_url += f'?client_key={CLIENT_KEY}'
-    auth_url += '&scope=user.info.basic'
+    auth_url += '&scope=user.info.basic,video.upload,video.publish'
     auth_url += '&response_type=code'
     auth_url += f'&redirect_uri={SERVER_ENDPOINT_REDIRECT}'
     auth_url += f'&state={csrf_state}'

@@ -13,4 +13,5 @@ if __name__ == "__main__":
     video_creation.build_clip()
     
     # Upload the content to TikTok profile. 
-    
+    # content_parser = UploadContent('./final_video/top_10_pokemon_cards_Legendary_Treasures.mp4')
+    # content_parser.extract_upload_info()
