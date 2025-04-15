@@ -9,3 +9,4 @@ backgrounds
 expansion_images
 *.json
 .env
+temp/*
