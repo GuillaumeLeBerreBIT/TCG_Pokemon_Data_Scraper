@@ -204,7 +204,8 @@ class VideoCreation:
         
         name, _ = os.path.splitext(os.path.basename(self.background_image))
         #ToDo: Need to open the image first
-        bck_img = self.background_image.resize((self.width, self.height), Image.LANCZOS)
+        
+        bck_img = Image.open(self.background_image).resize((self.width, self.height), Image.LANCZOS)
         
         try:
             # Load a font type specific to Pokemon styled theme
@@ -215,13 +216,24 @@ class VideoCreation:
         fillcolor = (255,255,255)
         shadowcolor = 'red'
         
-        draw = ImageDraw(bck_img)
+        draw = ImageDraw.Draw(bck_img)
         
-        text = f'Music by\n{artist}\n{song}'
+        lines = ['Music by', artist, song]
         
-        song_width = draw.textlength(text, font_type_large)
+        # Calculate the vertical position for each line
+        line_height = font_type_large.getbbox('Ay')[3] # Get the bottom pounding box.
+        total_height = line_height * len(lines)
         
-        self.create_text_border(draw, (self.width - song_width) // 2, 220, font_type_large, text, fillcolor, shadowcolor)
+        # Start position vertical centered
+        current_y = (self.height - total_height) // 2
+        
+        for text in lines:
+            
+            text_width = font_type_large.getbbox(text)[2]
+            
+            self.create_text_border(draw, (self.width - text_width) // 2, current_y, font_type_large, text, fillcolor, shadowcolor)
+            
+            current_y += line_height + 30
         
         output = f'temp/images/{song.replace(' ', '_')}_{name.replace(' ', '_')}_ENDING.jpg'
         bck_img.save(output)
@@ -275,9 +287,11 @@ class VideoCreation:
             x_offset = (self.width - card_width) // 2
             y_offset = (self.height - card_height) // 2
             
-            # Paste the card onto the background
-            final_img.paste(card_img_resized, (x_offset, y_offset))
-            
+            # Paste the card onto the background, if there is an alpah value take in account
+            if card_img_resized.mode == "RGBA":
+                final_img.paste(card_img_resized, (x_offset, y_offset), card_img_resized)
+            else:
+                final_img.paste(card_img_resized, (x_offset, y_offset))
             # Create a drawing context
             draw = ImageDraw.Draw(final_img)
             
@@ -297,6 +311,7 @@ class VideoCreation:
             
             # Save the final image > remove backslashes otherwise incomplete paths. 
             output_path = f'card_images/{name.replace('/', '-')}_PRICE_CARD.jpg'
+            final_img = final_img.convert('RGB')
             final_img.save(output_path)
             processed_images.append(output_path)
         
@@ -387,28 +402,26 @@ class VideoCreation:
         final_video.write_videofile(f'final_video/top_10_pokemon_cards_{set_name.replace(' ', '_')}.mp4', fps=24)
     
     def get_music(self):
-        
         music_folder = [s for s in os.listdir('./music/') if s.endswith('.mp4')]
         
-        if music_folder:
+        if not music_folder:
+            print("No music files found in ./music/ directory")
+            return None, None
             
-            song_path = os.path.join('./music/', random.choice(music_folder))
-            song, _ = os.path.splitext(os.path.basename(song_path))
-            
-            if song_path.endswith('.mp4'):
-                
-                video = VideoFileClip(song_path)
-                audio = video.audio
-                song_path = f'./temp/music/{song}.mp3'
-                audio.write_audiofile(song_path)
-                video.close()
-                
-            else:
-                audio = AudioClip(song_path)
-                
-            return song_path, audio
+        song_path = os.path.join('./music/', random.choice(music_folder))
+        song, _ = os.path.splitext(os.path.basename(song_path))
         
-        return None
+        if song_path.endswith('.mp4'):
+            video = VideoFileClip(song_path)
+            extracted_audio_path = f'./temp/music/{song}.mp3'
+            video.audio.write_audiofile(extracted_audio_path)
+            video.close()
+            
+            # Return the path to the extracted audio, not the audio object
+            return extracted_audio_path, AudioFileClip(extracted_audio_path)
+        else:
+            # If it's already an audio file
+            return song_path, AudioFileClip(song_path)
                 
         
     def get_audio(self, total_duration, audio, song):
@@ -435,6 +448,7 @@ class VideoCreation:
         # Save the adjusted audio to a temporary file
         adjusted_audio_path = f'./temp/music/{song}_ADJUSTED_AUDIO.mp3'
         adjusted_audio.write_audiofile(adjusted_audio_path)
+        return adjusted_audio_path
                 
         
     def build_clip(self):
