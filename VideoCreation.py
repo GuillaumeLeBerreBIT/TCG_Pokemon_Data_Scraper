@@ -9,6 +9,7 @@ from moviepy.video.fx import CrossFadeIn, CrossFadeOut
 from moviepy.video.compositing import CompositeVideoClip
 from moviepy import *
 from datetime import datetime
+import math
 
 class VideoCreation:
     
@@ -302,7 +303,26 @@ class VideoCreation:
             # Add card name with border
             name_width = draw.textlength(name, font=font_type_large)
             
-            self.create_text_border(draw, (self.width - name_width) // 2, 220, font_type_large, name, fillcolor, shadowcolor)
+            if draw.textlength(name, font=font_type_large) > self.width:
+                
+                splitted_name = name.split(' ')
+                half = math.ceil(len(splitted_name)/2)
+                
+                first_line = ' '.join(splitted_name[:half])
+                second_line = ' '.join(splitted_name[half:])
+                
+                height = font_type_large.getbbox('Ay')[3] # Retrieve the height from the Box drawn around it.
+                
+                width_1 = draw.textlength(first_line, font_type_large)
+                self.create_text_border(draw, (self.width - width_1) // 2, (220 - (height + 20)), font_type_large, first_line, fillcolor, shadowcolor )       
+                
+                width_2 = draw.textlength(first_line, font_type_large)
+                self.create_text_border(draw, (self.width - width_2) // 2, 220, font_type_large, first_line, fillcolor, shadowcolor )       
+
+                
+            else:
+                    
+                self.create_text_border(draw, (self.width - name_width) // 2, 220, font_type_large, name, fillcolor, shadowcolor)
             
             # # Add market price
             price = card['marketPrice'] if card['marketPrice'] else card['midPrice']
