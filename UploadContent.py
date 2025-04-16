@@ -1,6 +1,7 @@
 from dotenv import dotenv_values
 import requests
 import os 
+import math
 
 class UploadContent:
     
@@ -14,6 +15,8 @@ class UploadContent:
         }
         
         self.videosize = os.path.getsize(self.content)
+        self.chunck_size = 5 * 1024 * 1024
+        self.total_chunk_count = math.ceil(self.videosize / self.chunck_size)
     
     def extract_upload_info(self):
         """
@@ -26,12 +29,11 @@ class UploadContent:
             data = {
                 "source": "FILE_UPLOAD",
                 "video_size": self.videosize,  # Replace with actual size as integer
-                "chunk_size": 10000,  # Replace with actual size as integer
+                "chunk_size": self.videosize,  # Replace with actual size as integer
                 "total_chunk_count": 1
             }
             
             response = requests.post(url=url, json=data, headers=self.headers)
-            print('')
             response.raise_for_status()
             
             

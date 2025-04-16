@@ -205,20 +205,21 @@ class VideoCreation:
         name, _ = os.path.splitext(os.path.basename(self.background_image))
         #ToDo: Need to open the image first
         
-        bck_img = Image.open(self.background_image).resize((self.width, self.height), Image.LANCZOS)
+        bck_img = Image.open(self.background_image).filter(ImageFilter.GaussianBlur(radius=2))
+        bck_img = bck_img.resize((self.width, self.height), Image.LANCZOS)
         
         try:
             # Load a font type specific to Pokemon styled theme
-            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 120)
+            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 140)
         except IOError:
             font_type_large = ImageFont.load_default()
             
         fillcolor = (255,255,255)
-        shadowcolor = 'red'
+        shadowcolor = 'black'
         
         draw = ImageDraw.Draw(bck_img)
         
-        lines = ['Music by', artist, song]
+        lines = ['Music by', f'@{artist}', song]
         
         # Calculate the vertical position for each line
         line_height = font_type_large.getbbox('Ay')[3] # Get the bottom pounding box.
@@ -233,9 +234,10 @@ class VideoCreation:
             
             self.create_text_border(draw, (self.width - text_width) // 2, current_y, font_type_large, text, fillcolor, shadowcolor)
             
-            current_y += line_height + 30
+            current_y += line_height + 70
         
         output = f'temp/images/{song.replace(' ', '_')}_{name.replace(' ', '_')}_ENDING.jpg'
+        bck_img = bck_img.convert('RGB')
         bck_img.save(output)
         
         return output  
@@ -351,17 +353,18 @@ class VideoCreation:
             processed_images (_type_): _description_    
         """
         # Define duration parameters
-        clip_duration = 7  # Seconds each clip stays (including fade time)
+        clip_duration = 6  # Seconds each clip stays (including fade time)
         fade_duration = 1  # Seconds for fade effects
 
         clips = []
         
         header_clip = ImageClip(header_image).with_duration(clip_duration)
-        header_clip = CrossFadeIn(fade_duration).apply(header_clip)
+        # header_clip = CrossFadeIn(fade_duration).apply(header_clip)
         header_clip = CrossFadeOut(fade_duration).apply(header_clip)
         
-        clips.append(header_clip)
+        clips.append(header_clip.with_start(0))
         
+        current_time = clip_duration - fade_duration 
         for i, img_path in enumerate(processed_images):
             # Need to take in advance the header image
             i += 1
@@ -370,28 +373,45 @@ class VideoCreation:
             
             # Apply transitions conditionally
             clip = CrossFadeIn(fade_duration).apply(clip)
-            if i < len(processed_images)-1:  # Only apply fade-out to non-last clips
-                clip = CrossFadeOut(fade_duration).apply(clip)
-            
-            # Calculate staggered start time with overlap
-            start_time = i * (clip_duration - fade_duration)
+            clip = CrossFadeOut(fade_duration).apply(clip)
             
             # Position clip in composition
-            clip = clip.with_start(start_time)
+            clip = clip.with_start(current_time)
             clips.append(clip)
+            
+            current_time +=  (clip_duration - fade_duration)
 
         # Get the songname
         song_path, audio = self.get_music()
         
         song_name, _ = os.path.splitext(os.path.basename(song_path))
+        
         # Get the ending Image
-        ending_image = self.create_ending_image(song_name)
+        ending_image_path = self.create_ending_image(song_name)
+        
+        # Calculate middle section
+        middle_section_duration = 0
+        if processed_images:
+            middle_section_duration = len(processed_images)*(clip_duration-fade_duration)
+            
+        total_duration = middle_section_duration + clip_duration
+        
+        if total_duration < 60:
+            ending_clip_duration = 60-total_duration
+            ending_clip = ImageClip(ending_image_path).with_duration(ending_clip_duration)
+            ending_clip = CrossFadeIn(fade_duration).apply(ending_clip)
+            total_duration = 60
+        else:
+            ending_clip_duration = clip_duration
+            ending_clip = ImageClip(ending_image_path).with_duration(ending_clip_duration)
+            ending_clip = CrossFadeIn(fade_duration).apply(ending_clip)
+            total_duration += ending_clip_duration
+            
+        clips.append(ending_clip.with_start(current_time))
         
         # Create final composite with overlapping clips
         final_video = CompositeVideoClip(clips)
 
-        # Calculate total duration properly
-        total_duration = len(processed_images)*(clip_duration-fade_duration) + clip_duration
         final_video = final_video.with_duration(total_duration)
         
         audio_path = self.get_audio(total_duration, audio, song_name)
