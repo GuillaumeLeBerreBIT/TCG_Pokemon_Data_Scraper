@@ -1,4 +1,5 @@
 from dotenv import dotenv_values
+from oauthlib.oauth2 import WebApplicationClient
 import requests
 import os 
 import math
@@ -43,6 +44,22 @@ class UploadContent:
             
             raise SystemExit(e)
             
+    def fetch_o_auth(self):
+        """
+        Fetch the OAuth 2.0 Token
+        """
+        client = WebApplicationClient(self.config['CLIENT_ID'])
+        
+        authorization_url = 'https://www.tiktok.com/v2/auth/authorize/'
+        
+        url = client.prepare_request_uri(
+            authorization_url,
+            redirect_uri='http://127.0.0.1:5000/callback/',
+            scope=['user.info.basic', 'video.upload', 'video.publish'],
+            state='D8VAo311AAl_49LAtM51HA',
+        )
+        
+        
     
     def upload_to_tiktok(self):
         """

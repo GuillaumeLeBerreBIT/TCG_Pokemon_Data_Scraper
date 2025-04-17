@@ -32,12 +32,31 @@ class VideoCreation:
         os.makedirs('expansion_images', exist_ok=True)
         
         self.expansion_images_dir = './expansion_images/'
+        self.temp_folder = './temp/'
         
         #Portrait sizes
         self.width = 1080
         self.height = 1980
         
         self.background_image = None
+        self.header_image_path = './temp/images/{}_EXPANSION_IMAGE.jpg'
+        self.ending_image_path = './temp/images/{}_{}_ENDING.jpg'
+        
+        try:
+            # Load a font type specific to Pokemon styled theme
+            self.font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 150)
+            self.font_type_cards = ImageFont.truetype('./font/Bangers-Regular.ttf', 120)
+        except IOError:
+            self.font_type_large = ImageFont.load_default(size=150)
+            self.font_type_cards = ImageFont.load_default(size=120)
+        
+        self.fillcolor = (255, 255, 255)
+        self.shadowcolor_headers = 'black'
+        self.shadowcolor_cards = 'green'
+        
+         # Define duration parameters
+        self.clip_duration = 6  # Seconds each clip stays (including fade time)
+        self.fade_duration = 1  # Seconds for fade effects
         
     def get_expansion_name(self):
         """
@@ -124,7 +143,7 @@ class VideoCreation:
                     'name': name,
                     'imgBytes': img_bytes,
                 }
-
+        # The sort will place them from lowest number to high
         return dict(sorted(cards_dictionary.items()))
     
     def create_header_image(self, expansion_path):
@@ -140,10 +159,14 @@ class VideoCreation:
         background_img = background_img.resize((self.width, self.height), Image.LANCZOS)
         
         # Load expansion image
-        expansion_image = Image.open(expansion_path)
+        expansion_image = Image.open(# The code `expansion_path` is not valid Python syntax. It seems
+        # like a placeholder or a comment. It does not perform any
+        # specific action or operation in Python.
+        expansion_path)
         
-        # Calculate sizes to maintain aspect ratio
+        # Calculate sizes to maintain aspect ratio >> Set to 95 % of the total width
         expansion_width = int(self.width * 0.95)
+        # Here know the width so calculate the aspect ratio for the height divide the height by width. IF you knew the height would divide the width by the height to know the aspect ratio of it. 
         expansion_height = int(expansion_width * (expansion_image.height / expansion_image.width))
         expansion_image_res = expansion_image.resize((expansion_width, expansion_height), Image.LANCZOS)
         
@@ -163,16 +186,6 @@ class VideoCreation:
         # Create drawing context on the FINAL image (not the expansion image)
         draw = ImageDraw.Draw(final_img)
         
-        try:
-            # Load a font type specific to Pokemon styled theme
-            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 150)
-        except IOError:
-            font_type_large = ImageFont.load_default()
-        
-        # Set text colors
-        fillcolor = (255, 255, 255)
-        shadowcolor = 'black'
-        
         # Get current month and year
         current_date = datetime.now()
         date_string = current_date.strftime("%B %Y")
@@ -181,27 +194,28 @@ class VideoCreation:
         header_text = f"Prices {date_string}"
         
         # Calculate text position (centered horizontally, near top vertically)
-        text_width = draw.textlength(header_text, font=font_type_large)
+        text_width = draw.textlength(header_text, font=self.font_type_large)
         x = (self.width - text_width) // 2
         y = 500  # Top margin
         
         # Add text with border effect to the final image
-        self.create_text_border(draw, x, y, font_type_large, header_text, fillcolor, shadowcolor)
+        self.create_text_border(draw, x, y, self.font_type_large, header_text, self.fillcolor, self.shadowcolor_headers)
         
-        header_image_path = './temp/images/expansion_image.jpg'
+        #Expansion path
+        name, _ = os.path.splitext(os.path.basename(expansion_path))
+        
         # Save as RGB (removing alpha channel if present)
+        self.header_image_path = self.header_image_path.format(name)
         final_img = final_img.convert('RGB')
-        final_img.save(header_image_path)
-        
-        return header_image_path
+        final_img.save(self.header_image_path.format(name))
     
     def create_ending_image(self, music_name):
         """
-        Create the last image to displat int he cards list. 
+        Create the last image to display after all showing the cards list. 
         """
         music_list = music_name.split('_')
         artist = music_list[0]
-        song = ' '.join(c for c in music_list[1:])
+        song = ' '.join(i for i in music_list[1:])
         
         name, _ = os.path.splitext(os.path.basename(self.background_image))
         #ToDo: Need to open the image first
@@ -209,21 +223,12 @@ class VideoCreation:
         bck_img = Image.open(self.background_image).filter(ImageFilter.GaussianBlur(radius=2))
         bck_img = bck_img.resize((self.width, self.height), Image.LANCZOS)
         
-        try:
-            # Load a font type specific to Pokemon styled theme
-            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 140)
-        except IOError:
-            font_type_large = ImageFont.load_default()
-            
-        fillcolor = (255,255,255)
-        shadowcolor = 'black'
-        
         draw = ImageDraw.Draw(bck_img)
         
         lines = ['Music by', f'@{artist}', song]
         
         # Calculate the vertical position for each line
-        line_height = font_type_large.getbbox('Ay')[3] # Get the bottom pounding box.
+        line_height = self.font_type_large.getbbox('Ay')[3] # Get the bottom pounding box.
         total_height = line_height * len(lines)
         
         # Start position vertical centered
@@ -231,17 +236,16 @@ class VideoCreation:
         
         for text in lines:
             
-            text_width = font_type_large.getbbox(text)[2]
+            text_width = self.font_type_large.getbbox(text)[2]
             
-            self.create_text_border(draw, (self.width - text_width) // 2, current_y, font_type_large, text, fillcolor, shadowcolor)
+            self.create_text_border(draw, (self.width - text_width) // 2, current_y, self.font_type_large, text, self.fillcolor, self.shadowcolor_headers)
             
             current_y += line_height + 70
         
-        output = f'temp/images/{song.replace(' ', '_')}_{name.replace(' ', '_')}_ENDING.jpg'
-        bck_img = bck_img.convert('RGB')
-        bck_img.save(output)
+        self.ending_image_path = self.ending_image_path.format(song.replace(' ', '_'), name.replace(' ', '_'))
         
-        return output  
+        bck_img = bck_img.convert('RGB')
+        bck_img.save(self.ending_image_path)
             
     def process_cards(self, cards_dict):
         """
@@ -258,16 +262,7 @@ class VideoCreation:
         background_img = Image.open(self.background_image)
         blurred_background = background_img.filter(ImageFilter.GaussianBlur(radius=10))
         blurred_background = blurred_background.resize((self.width, self.height), Image.LANCZOS)
-        
-        try:
-            # Load a font type specific to Pokemon styled theme
-            font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 120)
-        except IOError:
-            font_type_large = ImageFont.load_default()
-            
-        fillcolor = (255,255,255)
-        shadowcolor = 'green'
-        
+                    
         processed_images = []
         
         for i, (market_price, card) in enumerate(cards_dict.items()):
@@ -301,9 +296,9 @@ class VideoCreation:
             name = f'#{card_count} {name}'
             
             # Add card name with border
-            name_width = draw.textlength(name, font=font_type_large)
+            name_width = draw.textlength(name, font=self.font_type_cards)
             
-            if draw.textlength(name, font=font_type_large) > self.width:
+            if name_width > self.width:
                 
                 splitted_name = name.split(' ')
                 half = math.ceil(len(splitted_name)/2)
@@ -311,28 +306,27 @@ class VideoCreation:
                 first_line = ' '.join(splitted_name[:half])
                 second_line = ' '.join(splitted_name[half:])
                 
-                height = font_type_large.getbbox('Ay')[3] # Retrieve the height from the Box drawn around it.
+                height = self.font_type_cards.getbbox('Ay')[3] # Retrieve the height from the Box drawn around it.
                 
-                width_1 = draw.textlength(first_line, font_type_large)
-                self.create_text_border(draw, (self.width - width_1) // 2, (220 - (height + 20)), font_type_large, first_line, fillcolor, shadowcolor )       
+                width_1 = draw.textlength(first_line, self.font_type_cards)
+                self.create_text_border(draw, (self.width - width_1) // 2, (220 - (height + 20)), self.font_type_cards, first_line, self.fillcolor, self.shadowcolor_cards )       
                 
-                width_2 = draw.textlength(first_line, font_type_large)
-                self.create_text_border(draw, (self.width - width_2) // 2, 220, font_type_large, first_line, fillcolor, shadowcolor )       
-
+                width_2 = draw.textlength(first_line, self.font_type_cards)
+                self.create_text_border(draw, (self.width - width_2) // 2, 220, self.font_type_cards, second_line, self.fillcolor, self.shadowcolor_cards )       
                 
             else:
                     
-                self.create_text_border(draw, (self.width - name_width) // 2, 220, font_type_large, name, fillcolor, shadowcolor)
+                self.create_text_border(draw, (self.width - name_width) // 2, 220, self.font_type_cards, name, self.fillcolor, self.shadowcolor_cards)
             
             # # Add market price
             price = card['marketPrice'] if card['marketPrice'] else card['midPrice']
             price_text = f"Market Price: ${price:.2f}"
-            price_width = draw.textlength(price_text, font=font_type_large)
+            price_width = draw.textlength(price_text, font=self.font_type_cards)
             
-            self.create_text_border(draw, (self.width - price_width) // 2,  self.height - 300, font_type_large, price_text, fillcolor, shadowcolor)
+            self.create_text_border(draw, (self.width - price_width) // 2,  self.height - 300, self.font_type_cards, price_text, self.fillcolor, self.shadowcolor_cards)
             
             # Save the final image > remove backslashes otherwise incomplete paths. 
-            output_path = f'card_images/{name.replace('/', '-')}_PRICE_CARD.jpg'
+            output_path = f'./temp/images/{name.replace('/', '-')}_PRICE_CARD.jpg'
             final_img = final_img.convert('RGB')
             final_img.save(output_path)
             processed_images.append(output_path)
@@ -365,41 +359,38 @@ class VideoCreation:
         # Draw main text on top
         draw.text((x, y), text, font=font, fill=text_color)
         
-    def create_composite_clip(self, header_image, processed_images, set_name):
+    def create_composite_clip(self, processed_images, set_name):
         """
         Create a full clip using all processed images. 
 
         Args:
             processed_images (_type_): _description_    
         """
-        # Define duration parameters
-        clip_duration = 6  # Seconds each clip stays (including fade time)
-        fade_duration = 1  # Seconds for fade effects
-
+       
         clips = []
         
-        header_clip = ImageClip(header_image).with_duration(clip_duration)
+        header_clip = ImageClip(self.header_image_path).with_duration(self.clip_duration)
         # header_clip = CrossFadeIn(fade_duration).apply(header_clip)
-        header_clip = CrossFadeOut(fade_duration).apply(header_clip)
+        header_clip = CrossFadeOut(self.fade_duration).apply(header_clip)
         
         clips.append(header_clip.with_start(0))
         
-        current_time = clip_duration - fade_duration 
+        current_time = self.clip_duration - self.fade_duration 
         for i, img_path in enumerate(processed_images):
             # Need to take in advance the header image
             i += 1
             # Create base clip with full duration
-            clip = ImageClip(img_path).with_duration(clip_duration)
+            clip = ImageClip(img_path).with_duration(self.clip_duration)
             
             # Apply transitions conditionally
-            clip = CrossFadeIn(fade_duration).apply(clip)
-            clip = CrossFadeOut(fade_duration).apply(clip)
+            clip = CrossFadeIn(self.fade_duration).apply(clip)
+            clip = CrossFadeOut(self.fade_duration).apply(clip)
             
             # Position clip in composition
             clip = clip.with_start(current_time)
             clips.append(clip)
             
-            current_time +=  (clip_duration - fade_duration)
+            current_time +=  (self.clip_duration - self.fade_duration)
 
         # Get the songname
         song_path, audio = self.get_music()
@@ -407,24 +398,24 @@ class VideoCreation:
         song_name, _ = os.path.splitext(os.path.basename(song_path))
         
         # Get the ending Image
-        ending_image_path = self.create_ending_image(song_name)
+        self.create_ending_image(song_name)
         
         # Calculate middle section
         middle_section_duration = 0
         if processed_images:
-            middle_section_duration = len(processed_images)*(clip_duration-fade_duration)
+            middle_section_duration = len(processed_images)*(self.clip_duration-self.fade_duration)
             
-        total_duration = middle_section_duration + clip_duration
+        total_duration = middle_section_duration + self.clip_duration
         
         if total_duration < 60:
             ending_clip_duration = 60-total_duration
-            ending_clip = ImageClip(ending_image_path).with_duration(ending_clip_duration)
-            ending_clip = CrossFadeIn(fade_duration).apply(ending_clip)
+            ending_clip = ImageClip(self.ending_image_path).with_duration(ending_clip_duration)
+            ending_clip = CrossFadeIn(self.fade_duration).apply(ending_clip)
             total_duration = 60
         else:
-            ending_clip_duration = clip_duration
-            ending_clip = ImageClip(ending_image_path).with_duration(ending_clip_duration)
-            ending_clip = CrossFadeIn(fade_duration).apply(ending_clip)
+            ending_clip_duration = self.clip_duration
+            ending_clip = ImageClip(self.ending_image_path).with_duration(ending_clip_duration)
+            ending_clip = CrossFadeIn(self.fade_duration).apply(ending_clip)
             total_duration += ending_clip_duration
             
         clips.append(ending_clip.with_start(current_time))
@@ -439,7 +430,7 @@ class VideoCreation:
         final_video = final_video.with_audio(AudioFileClip(audio_path).subclipped(0, total_duration))
         
         # Write the final video
-        final_video.write_videofile(f'final_video/top_10_pokemon_cards_{set_name.replace(' ', '_')}.mp4', fps=24)
+        final_video.write_videofile(f'video/TOP_10_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}.mp4', fps=24)
     
     def get_music(self):
         music_folder = [s for s in os.listdir('./music/') if s.endswith('.mp4')]
@@ -497,16 +488,19 @@ class VideoCreation:
         """
         cards_list = []
         # Load in a set to create the video from
-        while not cards_list or len(cards_list) < 10:
+        while not cards_list and len(cards_list) < 10:
             # Get the set_name based on a image.
             expansion_image, set_name = self.get_expansion_name()
             # Retrieve the 
             cards_list = self.query_cards(set_name)
         
+        # Close the connection to the DB. 
+        self.__close__()
+        
         # Background image
         self.background_image = self.get_background_image()
             
-        header_image_path = self.create_header_image(expansion_image)
+        self.create_header_image(expansion_image)
         
         # Download images
         cards_dictionary = self.download_images(cards_list)
@@ -514,7 +508,7 @@ class VideoCreation:
         # Process cards and get image paths
         processed_images = self.process_cards(cards_dictionary)
         
-        self.create_composite_clip(header_image_path, processed_images, set_name)
+        self.create_composite_clip(processed_images, set_name)
 
         
     def __close__(self):
@@ -522,3 +516,10 @@ class VideoCreation:
         Close database connection
         """
         self.conn.close()
+        
+    def clean_temp_folder(self):
+        """
+        Clean the folders out of unwanted metadata.
+        """
+        
+        pass
