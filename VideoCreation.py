@@ -133,18 +133,21 @@ class VideoCreation:
             if response.status_code == 200:
                 # Here already in Bytes can direclty save it to BytesIO
                 img_bytes = BytesIO(response.content)
-                price = marketPrice if marketPrice else midPrice
-                cards_dictionary[int(price)] = {
+                # price = marketPrice if marketPrice else midPrice
+                cards_dictionary[name] = {
                     'imageUrl': imageUrl,
                     'lowPrice': lowPrice,
                     'midPrice': midPrice,
                     'highPrice': highPrice,
                     'marketPrice': marketPrice,
-                    'name': name,
                     'imgBytes': img_bytes,
                 }
         # The sort will place them from lowest number to high
-        return dict(sorted(cards_dictionary.items()))
+        # Key [0] will acces the key, Key [1] will acces the value when calling cards_dictionary.
+        cards_dictionary = dict(sorted(cards_dictionary.items(), key=lambda item: float(item[1]['marketPrice']) 
+                                       if item[1]['marketPrice'] is not None 
+                                       else float(item[1]['highPrice'])))
+        return cards_dictionary
     
     def create_header_image(self, expansion_path):
         """
@@ -265,11 +268,11 @@ class VideoCreation:
                     
         processed_images = []
         
-        for i, (market_price, card) in enumerate(cards_dict.items()):
+        for i, (name, card) in enumerate(cards_dict.items()):
             # Open the card image >> IN Bytes
             card_img = Image.open(card['imgBytes'])
             # Get the name of the Image
-            name = card['name']
+            #name = card['name']
             # Get the count
             card_count = len(cards_dict.keys()) - i
             
@@ -376,9 +379,8 @@ class VideoCreation:
         clips.append(header_clip.with_start(0))
         
         current_time = self.clip_duration - self.fade_duration 
-        for i, img_path in enumerate(processed_images):
-            # Need to take in advance the header image
-            i += 1
+        for img_path in processed_images:
+            
             # Create base clip with full duration
             clip = ImageClip(img_path).with_duration(self.clip_duration)
             
@@ -430,7 +432,9 @@ class VideoCreation:
         final_video = final_video.with_audio(AudioFileClip(audio_path).subclipped(0, total_duration))
         
         # Write the final video
-        final_video.write_videofile(f'video/TOP_10_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}.mp4', fps=24)
+        output_video = f'video/TOP_10_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}.mp4'
+        final_video.write_videofile(output_video, fps=24)
+        return output_video
     
     def get_music(self):
         music_folder = [s for s in os.listdir('./music/') if s.endswith('.mp4')]
@@ -508,8 +512,8 @@ class VideoCreation:
         # Process cards and get image paths
         processed_images = self.process_cards(cards_dictionary)
         
-        self.create_composite_clip(processed_images, set_name)
-
+        output_video = self.create_composite_clip(processed_images, set_name)
+        return output_video
         
     def __close__(self):
         """
