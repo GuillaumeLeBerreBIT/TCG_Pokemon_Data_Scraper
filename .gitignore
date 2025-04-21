@@ -10,3 +10,4 @@ expansion_images
 *.json
 .env
 temp/*
+video
