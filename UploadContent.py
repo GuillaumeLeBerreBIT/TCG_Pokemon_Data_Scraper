@@ -44,16 +44,18 @@ class UploadContent:
         self.content = content
         self.headers = {
             'Authorization': f'Bearer {self.config['ACCESS_TOKEN']}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json; charset=UTF-8'
         }
         
         self.code_verifier = self.create_code_verifier()
         self.code_challenge = self.create_code_challenge(self.code_verifier)
         self.state = secrets.token_urlsafe(16)
         
-        self.videosize = os.path.getsize(self.content)
-        self.chunck_size = 5 * 1024 * 1024
-        self.total_chunk_count = math.ceil(self.videosize / self.chunck_size)
+        
+        self.content_path = content
+        self.video_size = os.path.getsize(content)
+        self.chunk_size = 5242880
+        self.total_chunk_count = max(1, self.video_size // self.chunk_size)
         
         self.redirect_uri = 'http://127.0.0.1:5000/callback/'
         self.token_url = 'https://open.tiktokapis.com/v2/oauth/token/'
@@ -69,14 +71,20 @@ class UploadContent:
         try: 
             
             url = 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/'
-            data = {
-                "source": "FILE_UPLOAD",
-                "video_size": self.videosize,  # Replace with actual size as integer
-                "chunk_size": self.videosize,  # Replace with actual size as integer
-                "total_chunk_count": 1
+            payload = {
+                "source_info": 
+                    {
+                    "source": "FILE_UPLOAD",
+                    "video_size": self.video_size,  # Replace with actual size as integer
+                    "chunk_size": self.video_size if self.total_chunk_count == 1 else self.chunk_size,  # Replace with actual size as integer
+                    "total_chunk_count": self.total_chunk_count
+                    }
             }
+    
+            response = requests.post(url=url, json=payload, headers=self.headers)
             
-            response = requests.post(url=url, json=data, headers=self.headers)
+            if response.status_code != 200:
+                print("Init error:", response.status_code, response.json())
             
             if response.status_code == 401:
                 self.refresh_access_token()
@@ -95,13 +103,75 @@ class UploadContent:
         """
         Parse the content to TikTok 
         """
-        headers = {
-            'Content-Range': 'bytes 0-30567099/30567100',
-            'Content-Type': 'video/mp4'
-        }
+
+        with open(self.content_path, 'rb') as f:
+            content = f.read()
         
-        requests.put(url, headers=headers, data=self.content)
+        for idx in range(self.total_chunk_count):
+            
+            chunk_size = self.chunk_size if self.total_chunk_count > 1 else self.video_size
+            
+            start = idx * chunk_size
+            end = min(start + chunk_size, self.video_size) - 1
         
+            headers = {
+                'Content-Range': f'bytes {start}-{end}/{self.video_size+1}',
+                'Content-Type': 'video/mp4'
+            }
+            
+            response = requests.put(url, headers=headers, data=content[start:end+1])
+            response.raise_for_status()
+            
+    def query_creater_info(self):
+        """
+        """
+        
+        try:
+            url = 'https://open.tiktokapis.com/v2/post/publish/creator_info/query/'
+            
+            response = requests.post(url, headers=self.headers)
+            
+            response.raise_for_status
+            
+            data = response.json()['data']
+            
+            return data
+        
+        except requests.exceptions.HTTPError as e:
+            
+            raise f'{e}'
+    
+    def direct_post(self):
+        
+        try:
+            url = 'https://open.tiktokapis.com/v2/post/publish/video/init/'
+            
+            payload = {
+                "post_info": 
+                {
+                    "title": "this will be a funny #cat video on your @tiktok #fyp",
+                    "privacy_level": "PUBLIC_TO_EVERYONE",
+                    "disable_duet": False,
+                    "disable_comment": True,
+                    "disable_stitch": False,
+                    "video_cover_timestamp_ms": 1000
+                },
+                "source_info": {
+                    "source": "FILE_UPLOAD",
+                    "video_size": self.video_size,
+                    "chunk_size": self.chunk_size if self.total_chunk_count > 1 else self.video_size,
+                    "total_chunk_count": self.total_chunk_count
+                }
+            }
+            
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            
+            data = response.json()['data']
+            return data
+            
+        except requests.exceptions.HTTPError as e:
+            raise f'{e}'
     
     def refresh_access_token(self):
         """Use the refresh token to get a new access token without user intervention"""

@@ -11,3 +11,4 @@ expansion_images
 .env
 temp/*
 video
+test.py
