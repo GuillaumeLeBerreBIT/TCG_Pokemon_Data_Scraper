@@ -4,6 +4,7 @@ from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import os
 import random
+from thefuzz import process
 from moviepy import ImageClip
 from moviepy.video.fx import CrossFadeIn, CrossFadeOut
 from moviepy.video.compositing import CompositeVideoClip
@@ -58,14 +59,60 @@ class VideoCreation:
         self.clip_duration = 6  # Seconds each clip stays (including fade time)
         self.fade_duration = 1  # Seconds for fade effects
         
-    def get_expansion_name(self):
+    def get_expansion_name(self, expansion=None):
         """
         Get a random Image name from the expansion list.
         """
-        
+            
         expansion_images = [img for img in os.listdir(self.expansion_images_dir) if img.endswith('.jpg') or img.endswith('.png')]
         
-        expansion_image = random.choice(expansion_images)
+        if expansion:
+            
+            name_mappings = []
+            for img in expansion_images:
+                
+                # Get the full name first
+                full_display_name = os.path.splitext(img)[0].replace('_', ' ')
+                
+                if '-' in img:
+                    raw_name = img.split('-', 1)[1]
+                else:
+                    raw_name = img
+                    
+                name_without_extension, _ = os.path.splitext(raw_name)
+                if name_without_extension.startswith('EX'):
+                    name_without_extension = name_without_extension.replace('EX_', '').strip()
+                    
+                partial_display_name = name_without_extension.replace('_', ' ')
+                
+                name_mappings.append((img, full_display_name, partial_display_name))
+                
+            full_names  = [full for _, full, _ in name_mappings]
+            best_full_match = process.extractOne(expansion, full_names)
+            
+            partial_names = [partial for _, _, partial in name_mappings]
+            best_partial_match = process.extractOne(expansion, partial_names)
+            
+            if (best_full_match and best_partial_match and 
+                best_full_match[1] > best_partial_match[1]):
+                matched_image = next((img for img, full, _ in name_mappings
+                                        if best_full_match[0] == full), None)
+                
+            elif best_partial_match:
+                matched_image = next((img for img, _, partial in name_mappings
+                                        if best_partial_match[0] == partial), None)
+            
+            else:
+                matched_image = None
+                
+            if matched_image:
+                expansion_image = matched_image
+            else:
+                expansion_image = random.choice(expansion_images)
+                
+        else:
+    
+            expansion_image = random.choice(expansion_images)
         
         if '-' in expansion_image:
             expansion_raw_name = expansion_image.split('-')[1]
@@ -296,29 +343,47 @@ class VideoCreation:
             # Create a drawing context
             draw = ImageDraw.Draw(final_img)
             
-            name = f'#{card_count} {name}'
+            display_name = f'#{card_count} {name}'
+            
+            line_height = self.font_type_cards.getbbox(display_name)[3]
+            vertical_spacing = int(line_height * 1,5)
+            y_base = 150
             
             # Add card name with border
-            name_width = draw.textlength(name, font=self.font_type_cards)
+            name_width = draw.textlength(display_name, font=self.font_type_cards)
             
             if name_width > self.width:
                 
-                splitted_name = name.split(' ')
-                half = math.ceil(len(splitted_name)/2)
+                words = display_name.split(' ')
+                current_line = []
+                lines = []
                 
-                first_line = ' '.join(splitted_name[:half])
-                second_line = ' '.join(splitted_name[half:])
+                # Create lines smaller then the total width of the image. 
+                for word in words:
+                    
+                    test_line = ' '.join(current_line + [word])
+                    test_width = draw.textlength(test_line, self.font_type_cards)
+                    
+                    if test_width <= self.width:
+                        
+                        current_line.append(word)
+                    else:
+                        if current_line:
+                            lines.append(' '.join(current_line))
+                        
+                        current_line = [word]
                 
-                height = self.font_type_cards.getbbox('Ay')[3] # Retrieve the height from the Box drawn around it.
+                if current_line:
+                    lines.append(' '.join(current_line))
                 
-                width_1 = draw.textlength(first_line, self.font_type_cards)
-                self.create_text_border(draw, (self.width - width_1) // 2, (220 - (height + 20)), self.font_type_cards, first_line, self.fillcolor, self.shadowcolor_cards )       
-                
-                width_2 = draw.textlength(first_line, self.font_type_cards)
-                self.create_text_border(draw, (self.width - width_2) // 2, 220, self.font_type_cards, second_line, self.fillcolor, self.shadowcolor_cards )       
+                for i, line in enumerate(lines):
+                    
+                    name_width = draw.textlength(line, self.font_type_cards)
+                    y = y_base + (i * vertical_spacing)
+                    
+                    self.create_text_border(draw, (self.width - name_width) // 2, y, self.font_type_cards, line, self.fillcolor, self.shadowcolor_cards)
                 
             else:
-                    
                 self.create_text_border(draw, (self.width - name_width) // 2, 220, self.font_type_cards, name, self.fillcolor, self.shadowcolor_cards)
             
             # # Add market price
@@ -486,7 +551,7 @@ class VideoCreation:
         return adjusted_audio_path
                 
         
-    def build_clip(self):
+    def build_clip(self, expansion_name=None):
         """
         Create a one minute long clip of pokemon cards.
         """
@@ -494,7 +559,7 @@ class VideoCreation:
         # Load in a set to create the video from
         while not cards_list and len(cards_list) < 10:
             # Get the set_name based on a image.
-            expansion_image, set_name = self.get_expansion_name()
+            expansion_image, set_name = self.get_expansion_name(expansion_name)
             # Retrieve the 
             cards_list = self.query_cards(set_name)
         
