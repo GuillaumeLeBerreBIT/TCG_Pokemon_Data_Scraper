@@ -4,6 +4,11 @@
         
 
 
+
+
+
+
+
         {
             "name": "Debug with Crown Zenith",
             "type": "debugpy",
@@ -11,7 +16,7 @@
             "program": "C:/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/main.py",
             "console": "integratedTerminal",
             "python": "${workspaceFolder}/venv/Scripts/python.exe",
-            "args": ["-s", "Crown Zenith"]
+            "args": ["-s", "Surging Sparks"]
         },
         {
             "name": "Debug with Scarlet & Violet-Stellar Crown",

@@ -157,8 +157,24 @@ class VideoCreation:
             LIMIT 10
         """, (set_name,)
         )
+        rows = self.cursor.fetchall()
         
-        return self.cursor.fetchall()
+        if not rows:
+            like_pattern = f'%{set_name}%'
+            self.cursor.execute("""
+                SELECT name, imageUrl, lowPrice, midPrice, highPrice, marketPrice
+                FROM pokemon 
+                WHERE setName LIKE ? 
+                AND extNumber IS NOT '' 
+                AND extCardType IS NOT ''
+                AND (marketPrice IS NOT '' OR midPrice is NOT '')
+                ORDER BY marketPrice DESC
+                LIMIT 10
+            """, (like_pattern,)
+            )
+            rows = self.cursor.fetchall()
+        
+        return rows
     
     def download_images(self, cards_list):
         """
@@ -345,9 +361,9 @@ class VideoCreation:
             
             display_name = f'#{card_count} {name}'
             
-            line_height = self.font_type_cards.getbbox(display_name)[3]
-            vertical_spacing = int(line_height * 1,5)
-            y_base = 150
+            line_height = self.font_type_cards.getbbox('Ay')[3]
+            vertical_spacing = int(line_height) * 1.5
+            y_base = 100
             
             # Add card name with border
             name_width = draw.textlength(display_name, font=self.font_type_cards)
@@ -384,7 +400,7 @@ class VideoCreation:
                     self.create_text_border(draw, (self.width - name_width) // 2, y, self.font_type_cards, line, self.fillcolor, self.shadowcolor_cards)
                 
             else:
-                self.create_text_border(draw, (self.width - name_width) // 2, 220, self.font_type_cards, name, self.fillcolor, self.shadowcolor_cards)
+                self.create_text_border(draw, (self.width - name_width) // 2, 220, self.font_type_cards, display_name, self.fillcolor, self.shadowcolor_cards)
             
             # # Add market price
             price = card['marketPrice'] if card['marketPrice'] else card['midPrice']
