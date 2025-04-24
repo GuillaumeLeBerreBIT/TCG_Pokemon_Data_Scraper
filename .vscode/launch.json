@@ -2,13 +2,6 @@
     "version": "0.2.0",
     "configurations": [
         
-
-
-
-
-
-
-
         {
             "name": "Debug with Crown Zenith",
             "type": "debugpy",
@@ -18,23 +11,5 @@
             "python": "${workspaceFolder}/venv/Scripts/python.exe",
             "args": ["-s", "Surging Sparks"]
         },
-        {
-            "name": "Debug with Scarlet & Violet-Stellar Crown",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "C:/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/main.py",
-            "console": "integratedTerminal",
-            "python": "${workspaceFolder}/venv/Scripts/python.exe",
-            "args": ["-s", "Scarlet & Violet-Stellar Crown"]
-        },
-        {
-            "name": "Debug with Scarlet & Violet-151",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "C:/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/main.py",
-            "console": "integratedTerminal",
-            "python": "${workspaceFolder}/venv/Scripts/python.exe",
-            "args": ["-s", "Scarlet & Violet-151"]
-        }
     ]
 }

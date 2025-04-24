@@ -340,7 +340,7 @@ class VideoCreation:
             card_count = len(cards_dict.keys()) - i
             
             # Resize card image to fit nicely on background
-            card_width = int(self.width * 0.8)
+            card_width = int(self.width * 0.75)
             card_height = int(card_width * (card_img.height / card_img.width))
             card_img_resized = card_img.resize((card_width, card_height), Image.LANCZOS)
             

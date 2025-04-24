@@ -11,6 +11,19 @@ import urllib.parse
 import threading
 import json
 import time
+import httplib2
+import pickle
+
+import google_auth_httplib2
+import googleapiclient.discovery
+import googleapiclient.errors
+import googleapiclient.http
+
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 
 
 class CallbackHandler(BaseHTTPRequestHandler):
@@ -35,7 +48,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
         threading.Thread(target=self.server.shutdown).start()
 
 
-class UploadContent:
+class UploadContentTikTok:
     
     def __init__(self, content):
         
@@ -281,3 +294,49 @@ class UploadContent:
         self.access_token = token_info['access_token']
         return token_info
 
+
+class UploadContentYouTube:
+    
+    def __init__(self):
+        
+        
+        self.UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
+        self.API_SERVICE_NAME = "youtube"
+        self.API_VERSION = "v3"
+        self.CLIENTS_SECRETS_FILE = 'client_secret.json'
+        self.TOKEN_PICKLE_FILE = 'token.pickle'
+        
+    def authenticate_youtube(self):
+        credentials = None
+        
+        if os.path.exists(self.TOKEN_PICKLE_FILE):
+            with open(self.TOKEN_PICKLE_FILE) as token:
+                credentials = pickle.load(token)
+        
+        if not credentials or not credentials.valid:
+            if credentials and credentials.expired and credentials.refresh_token:
+                credentials.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    self.CLIENTS_SECRETS_FILE, self.UPLOAD_SCOPE)
+                credentials = flow.run_local_server(port=8080)
+        
+        # Save the credentials for the next run
+            with open(self.TOKEN_PICKLE_FILE, 'wb') as token:
+                pickle.dump(credentials, token)
+        
+        return build(self.API_SERVICE_NAME, self.API_VERSION, credentials=credentials)
+    
+    def initialize_upload(self):
+        pass
+    
+    def upload_to_yt(self):
+        
+        youtube = self.authenticate_youtube()
+        try:
+            self.initialize_upload()
+        except Exception as e:
+            
+            raise f'An HTTP error {e.resp.status} occurred: {e.content}' 
+            
+            

@@ -12,3 +12,4 @@ expansion_images
 temp/*
 video
 test.py
+*.json
