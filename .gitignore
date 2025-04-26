@@ -13,3 +13,4 @@ temp/*
 video
 test.py
 *.json
+*.pickle
