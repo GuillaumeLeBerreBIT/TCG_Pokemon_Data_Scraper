@@ -515,7 +515,7 @@ class VideoCreation:
         # Write the final video
         output_video = f'video/TOP_10_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}.mp4'
         final_video.write_videofile(output_video, fps=24)
-        return output_video
+        return output_video, song_name
     
     def get_music(self):
         music_folder = [s for s in os.listdir('./music/') if s.endswith('.mp4')]
@@ -593,8 +593,8 @@ class VideoCreation:
         # Process cards and get image paths
         processed_images = self.process_cards(cards_dictionary)
         
-        output_video = self.create_composite_clip(processed_images, set_name)
-        return output_video
+        output_video, song_name = self.create_composite_clip(processed_images, set_name)
+        return output_video, set_name, song_name
         
     def __close__(self):
         """

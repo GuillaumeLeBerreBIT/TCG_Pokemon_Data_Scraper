@@ -6,13 +6,14 @@ import string
 import secrets
 import hashlib
 import webbrowser
-from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import threading
 import json
 import time
 import httplib2
 import pickle
+from datetime import datetime
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import google_auth_httplib2
 import googleapiclient.discovery
@@ -297,20 +298,25 @@ class UploadContentTikTok:
 
 class UploadContentYouTube:
     
-    def __init__(self):
+    def __init__(self, video_path, expansion, song):
         
+        self.video_path = video_path
+        self.expansion = expansion
+        self.song = song
         
-        self.UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
-        self.API_SERVICE_NAME = "youtube"
+        self.UPLOAD_SCOPE = ["https://www.googleapis.com/auth/youtube.upload"]
+        self.API_SERVICE_NAME = "youtube"   
         self.API_VERSION = "v3"
         self.CLIENTS_SECRETS_FILE = 'client_secret.json'
         self.TOKEN_PICKLE_FILE = 'token.pickle'
+        
+        self.tags = ['pokemon', 'tcg', 'top10']
         
     def authenticate_youtube(self):
         credentials = None
         
         if os.path.exists(self.TOKEN_PICKLE_FILE):
-            with open(self.TOKEN_PICKLE_FILE) as token:
+            with open(self.TOKEN_PICKLE_FILE, 'rb') as token:
                 credentials = pickle.load(token)
         
         if not credentials or not credentials.valid:
@@ -327,14 +333,45 @@ class UploadContentYouTube:
         
         return build(self.API_SERVICE_NAME, self.API_VERSION, credentials=credentials)
     
-    def initialize_upload(self):
-        pass
+    def initialize_upload(self, youtube):
+        
+        body=dict(
+            snippet=dict(
+                title=f'TOP 10 EXPENSIVE CARDS {self.expansion} - {datetime.strftime(datetime.now(), "%B %Y")}',
+                description=f"""
+                Here are the Top 10 Most Expensive Cards from the {self.expansion}! 💎✨
+                Watch to see which stunning alt-arts and secret rares top the list!
+                
+                🎵 Music by: Cindery Lofi
+                🎶 Track: {self.song}
+                #pokemon  #pokemontcg  #pokemoncards  #pokemoncommunity  #tcgcommunity  #pokemoncollector  
+                #pokemonpulls  #rarepokemon  #CrownZenith  #GallarionGallery #CZGG  #top10  
+                #lofi  #lofibeats  #lofimusic  #chillvibes
+                """,
+                tags=self.tags,
+                categoryId="22"
+            ),
+            status=dict(
+                privacyStatus='public'
+            )
+        )
+        
+        request = youtube.videos().insert(
+            part=','.join(body.keys()),
+            body=body,
+            media_body=MediaFileUpload(self.video_path, chunksize=-1)
+        )
+        
+        response = request.execute()
+        return response
     
     def upload_to_yt(self):
         
         youtube = self.authenticate_youtube()
         try:
-            self.initialize_upload()
+            result = self.initialize_upload(youtube)
+            print('Download succesfully completed.')
+            return result
         except Exception as e:
             
             raise f'An HTTP error {e.resp.status} occurred: {e.content}' 
