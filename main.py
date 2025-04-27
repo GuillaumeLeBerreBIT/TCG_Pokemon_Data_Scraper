@@ -31,6 +31,6 @@ if __name__ == "__main__":
     yt_parser = UploadContentYouTube(
         video_path=video_path, 
         expansion=set_name, 
-        song_name=song_name)
+        artist_song=song_name)
     yt_parser.upload_to_yt()
     

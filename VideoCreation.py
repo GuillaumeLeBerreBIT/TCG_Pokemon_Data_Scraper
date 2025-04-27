@@ -328,7 +328,7 @@ class VideoCreation:
         bck_img = bck_img.convert('RGB')
         bck_img.save(self.ending_image_path)
     
-    def enhance_image(self, image, card_width, card_height):
+    def enhance_card_image(self, image, card_width, card_height):
         
         cv_img = np.array(image.convert('RGB'))
         cv_img = cv_img[:, :, ::-1].copy()
@@ -373,7 +373,7 @@ class VideoCreation:
             card_height = int(card_width * (card_img.height / card_img.width))
             # card_img_resized = card_img.resize((card_width, card_height), Image.LANCZOS)
             
-            sharpened_image = self.enhance_image(card_img, card_width, card_height)
+            sharpened_image = self.enhance_card_image(card_img, card_width, card_height)
             
             # Create a new image with blurred background
             final_img = blurred_background.copy()
