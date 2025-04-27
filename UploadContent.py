@@ -307,8 +307,8 @@ class UploadContentYouTube:
         self.UPLOAD_SCOPE = ["https://www.googleapis.com/auth/youtube.upload"]
         self.API_SERVICE_NAME = "youtube"   
         self.API_VERSION = "v3"
-        self.CLIENTS_SECRETS_FILE = 'client_secret.json'
-        self.TOKEN_PICKLE_FILE = 'token.pickle'
+        self.CLIENTS_SECRETS_FILE = './token/client_secret.json'
+        self.TOKEN_PICKLE_FILE = './token/token.pickle'
         
         self.tags = ['pokemon', 'tcg', 'top10']
     

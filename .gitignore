@@ -1,9 +1,7 @@
 venv
-pokemontcg.db
+database/*
 music
 full_music_video
-final_video
-csv_downloads
 card_images
 backgrounds
 expansion_images
@@ -11,6 +9,6 @@ expansion_images
 .env
 temp/*
 video
-test.py
 *.json
 *.pickle
+test.py

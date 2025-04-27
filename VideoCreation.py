@@ -26,7 +26,7 @@ class VideoCreation:
         self.headers = {
             'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
         }
-        self.db = 'pokemontcg.db'
+        self.db = './database/pokemontcg.db'
         
         # Initialize database
         self.conn = sqlite3.connect(self.db)
@@ -159,8 +159,9 @@ class VideoCreation:
             WHERE setName = ? 
             AND extNumber IS NOT '' 
             AND extCardType IS NOT ''
-            AND (marketPrice IS NOT '' OR midPrice is NOT '')
-            ORDER BY marketPrice DESC
+            AND (marketPrice IS NOT '' OR midPrice IS NOT '')
+            ORDER BY CAST(COALESCE(marketPrice, '0') AS REAL) DESC, 
+                CAST(COALESCE(midPrice, '0') AS REAL) DESC
             LIMIT 10
         """, (set_name,)
         )
@@ -174,8 +175,9 @@ class VideoCreation:
                 WHERE setName LIKE ? 
                 AND extNumber IS NOT '' 
                 AND extCardType IS NOT ''
-                AND (marketPrice IS NOT '' OR midPrice is NOT '')
-                ORDER BY marketPrice DESC
+                AND (marketPrice IS NOT '' OR midPrice IS NOT '')
+                ORDER BY CAST(COALESCE(marketPrice, '0') AS REAL) DESC, 
+                    CAST(COALESCE(midPrice, '0') AS REAL) DESC
                 LIMIT 10
             """, (like_pattern,)
             )

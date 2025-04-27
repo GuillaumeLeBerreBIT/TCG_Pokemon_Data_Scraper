@@ -22,7 +22,7 @@ class TCGCSVScraper:
             'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
         }
         self.output_dir = output_dir
-        self.db = 'pokemontcg.db'
+        self.db = './database/pokemontcg.db'
         
         # Initialize database
         self.conn = sqlite3.connect(self.db)
