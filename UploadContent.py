@@ -298,11 +298,11 @@ class UploadContentTikTok:
 
 class UploadContentYouTube:
     
-    def __init__(self, video_path, expansion, song):
+    def __init__(self, video_path, expansion, artist_song):
         
         self.video_path = video_path
         self.expansion = expansion
-        self.song = song
+        self.artist_song = artist_song
         
         self.UPLOAD_SCOPE = ["https://www.googleapis.com/auth/youtube.upload"]
         self.API_SERVICE_NAME = "youtube"   
@@ -311,7 +311,12 @@ class UploadContentYouTube:
         self.TOKEN_PICKLE_FILE = 'token.pickle'
         
         self.tags = ['pokemon', 'tcg', 'top10']
+    
+    def split_artist_song(self, artist_song):
         
+        splitted_artist = artist_song.split('_', 1)
+        return splitted_artist[0], splitted_artist[1].replace('_', ' ')
+    
     def authenticate_youtube(self):
         credentials = None
         
@@ -335,6 +340,8 @@ class UploadContentYouTube:
     
     def initialize_upload(self, youtube):
         
+        artist, song = self.split_artist_song(self.artist_song)
+        
         body=dict(
             snippet=dict(
                 title=f'TOP 10 EXPENSIVE CARDS {self.expansion} - {datetime.strftime(datetime.now(), "%B %Y")}',
@@ -342,8 +349,8 @@ class UploadContentYouTube:
                 Here are the Top 10 Most Expensive Cards from the {self.expansion}! 💎✨
                 Watch to see which stunning alt-arts and secret rares top the list!
                 
-                🎵 Music by: Cindery Lofi
-                🎶 Track: {self.song}
+                🎵 Music by: {artist}
+                🎶 Track: {song}
                 #pokemon  #pokemontcg  #pokemoncards  #pokemoncommunity  #tcgcommunity  #pokemoncollector  
                 #pokemonpulls  #rarepokemon  #CrownZenith  #GallarionGallery #CZGG  #top10  
                 #lofi  #lofibeats  #lofimusic  #chillvibes

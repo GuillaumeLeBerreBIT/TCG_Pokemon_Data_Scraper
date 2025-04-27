@@ -1,7 +1,7 @@
 import sqlite3
 import requests
 from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import os
 import random
 from thefuzz import process
@@ -10,7 +10,9 @@ from moviepy.video.fx import CrossFadeIn, CrossFadeOut
 from moviepy.video.compositing import CompositeVideoClip
 from moviepy import *
 from datetime import datetime
-import math
+
+import cv2
+import numpy as np
 
 class VideoCreation:
     
@@ -18,6 +20,9 @@ class VideoCreation:
         """
         Initialize the video creation process
         """
+        
+        self.expansion_full_name = None
+        
         self.headers = {
             'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
         }
@@ -113,6 +118,8 @@ class VideoCreation:
         else:
     
             expansion_image = random.choice(expansion_images)
+            
+        self.expansion_full_name = os.path.splitext(expansion_image)[0].replace('_', ' ')
         
         if '-' in expansion_image:
             expansion_raw_name = expansion_image.split('-')[1]
@@ -190,8 +197,16 @@ class VideoCreation:
         for card in cards_list:
             
             name, imageUrl, lowPrice, midPrice, highPrice, marketPrice = card
+            image_url_400 = imageUrl.replace('200w', '400w')
             
-            response = requests.get(url=imageUrl, headers=self.headers)
+            try:
+                response = requests.get(url=image_url_400, headers=self.headers)
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                
+                print("Couldn't retrieve the image from increased size")
+            else:
+                response = requests.get(url=imageUrl, headers=self.headers)
             
             if response.status_code == 200:
                 # Here already in Bytes can direclty save it to BytesIO
@@ -312,7 +327,21 @@ class VideoCreation:
         
         bck_img = bck_img.convert('RGB')
         bck_img.save(self.ending_image_path)
+    
+    def enhance_image(self, image, card_width, card_height):
+        
+        cv_img = np.array(image.convert('RGB'))
+        cv_img = cv_img[:, :, ::-1].copy()
+        
+        cv_img_resized = cv2.resize(cv_img, (card_width, card_height), interpolation=cv2.INTER_CUBIC)
+        # Convert to PIL Image
+        card_img_resized = Image.fromarray(cv_img_resized[:, :, ::-1])
+        
+        enhancer = ImageEnhance.Sharpness(card_img_resized)
+        sharpened_image = enhancer.enhance(1.5)
             
+        return sharpened_image
+    
     def process_cards(self, cards_dict):
         """
         Create a picture of each card with the market price on it.
@@ -340,9 +369,11 @@ class VideoCreation:
             card_count = len(cards_dict.keys()) - i
             
             # Resize card image to fit nicely on background
-            card_width = int(self.width * 0.75)
+            card_width = int(self.width * 0.70)
             card_height = int(card_width * (card_img.height / card_img.width))
-            card_img_resized = card_img.resize((card_width, card_height), Image.LANCZOS)
+            # card_img_resized = card_img.resize((card_width, card_height), Image.LANCZOS)
+            
+            sharpened_image = self.enhance_image(card_img, card_width, card_height)
             
             # Create a new image with blurred background
             final_img = blurred_background.copy()
@@ -352,10 +383,10 @@ class VideoCreation:
             y_offset = (self.height - card_height) // 2
             
             # Paste the card onto the background, if there is an alpah value take in account
-            if card_img_resized.mode == "RGBA":
-                final_img.paste(card_img_resized, (x_offset, y_offset), card_img_resized)
+            if sharpened_image.mode == "RGBA":
+                final_img.paste(sharpened_image, (x_offset, y_offset), sharpened_image)
             else:
-                final_img.paste(card_img_resized, (x_offset, y_offset))
+                final_img.paste(sharpened_image, (x_offset, y_offset))
             # Create a drawing context
             draw = ImageDraw.Draw(final_img)
             
@@ -410,9 +441,9 @@ class VideoCreation:
             self.create_text_border(draw, (self.width - price_width) // 2,  self.height - 300, self.font_type_cards, price_text, self.fillcolor, self.shadowcolor_cards)
             
             # Save the final image > remove backslashes otherwise incomplete paths. 
-            output_path = f'./temp/images/{name.replace('/', '-')}_PRICE_CARD.jpg'
+            output_path = f'./temp/images/{name.replace('/', '-')}_PRICE_CARD.png'
             final_img = final_img.convert('RGB')
-            final_img.save(output_path)
+            final_img.save(output_path, format='PNG')
             processed_images.append(output_path)
         
         return processed_images
