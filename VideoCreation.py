@@ -14,6 +14,12 @@ from datetime import datetime
 import cv2
 import numpy as np
 
+# import torch
+# from basicsr.archs.rrdbnet_arch import RRDBNet
+# from basicsr.utils.download_util import load_file_from_url
+# from realesrgan import RealESRGANer
+# from realesrgan.archs.srvgg_arch import SRVGGNetCompact
+
 class VideoCreation:
     
     def __init__(self):
@@ -63,6 +69,9 @@ class VideoCreation:
          # Define duration parameters
         self.clip_duration = 6  # Seconds each clip stays (including fade time)
         self.fade_duration = 1  # Seconds for fade effects
+        
+        self._realesrgan_model = None
+        self._realesrgan_model_name = None
         
     def get_expansion_name(self, expansion=None):
         """
@@ -199,28 +208,32 @@ class VideoCreation:
         for card in cards_list:
             
             name, imageUrl, lowPrice, midPrice, highPrice, marketPrice = card
-            image_url_400 = imageUrl.replace('200w', '400w')
+            image_url_1000 = imageUrl.replace('_200w', '_in_1000x1000')
             
             try:
-                response = requests.get(url=image_url_400, headers=self.headers)
+                response = requests.get(url=image_url_1000, headers=self.headers)
+                image_downloaded_url = image_url_1000
                 response.raise_for_status()
+                
             except requests.exceptions.HTTPError as e:
                 
-                print("Couldn't retrieve the image from increased size")
-            else:
+                print("Couldn't retrieve the image from increased size: {e}")
+           
                 response = requests.get(url=imageUrl, headers=self.headers)
+                image_downloaded_url = imageUrl
             
             if response.status_code == 200:
                 # Here already in Bytes can direclty save it to BytesIO
                 img_bytes = BytesIO(response.content)
+                
                 # price = marketPrice if marketPrice else midPrice
                 cards_dictionary[name] = {
-                    'imageUrl': imageUrl,
+                    'imageUrl': image_downloaded_url,
                     'lowPrice': lowPrice,
                     'midPrice': midPrice,
                     'highPrice': highPrice,
                     'marketPrice': marketPrice,
-                    'imgBytes': img_bytes,
+                    'imgBytes': img_bytes
                 }
         # The sort will place them from lowest number to high
         # Key [0] will acces the key, Key [1] will acces the value when calling cards_dictionary.
@@ -330,7 +343,7 @@ class VideoCreation:
         bck_img = bck_img.convert('RGB')
         bck_img.save(self.ending_image_path)
     
-    def enhance_card_image(self, image, card_width, card_height):
+    def enhance_card_image_traditional(self, image, card_width, card_height, quality='balanced'):
         
         cv_img = np.array(image.convert('RGB'))
         cv_img = cv_img[:, :, ::-1].copy()
@@ -343,6 +356,78 @@ class VideoCreation:
         sharpened_image = enhancer.enhance(1.5)
             
         return sharpened_image
+    
+    def ehance_card_image_advanced(self, image, card_width, card_height, quality='balanced'):
+        try:
+            #Image enhancing protocol.
+            img_array = np.array(image)
+            
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            
+            if quality == 'fast':
+                model_name = 'realesr-animevideov3'
+                
+            elif quality == 'balanced': 
+                model_name = 'realesr-general-x4v3'
+                
+            else:
+                model_name = 'RealESRGAN_x4plus_anime_6B'
+            
+            
+            if not hasattr(self, '_realesrgan_model') or self._realesrgan_model_name != model_name:
+                
+                if model_name == 'realesr-general-x4v3':
+                    model = SRVGGNetCompact(num_in_ch=3, num_out_ch=3, num_feat=64, num_conv=32, upscale=4, act_type='prelu')
+                    netscale = 4
+                    file_url = [
+                        'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-wdn-x4v3.pth',
+                        'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth'
+                    ]
+                    
+                elif model_name == 'realesr-animevideov3':
+                    model = SRVGGNetCompact(num_in_ch=3, num_out_ch=3, num_feat=64, num_conv=16, upscale=4, act_type='prelu')
+                    netscale = 4
+                    file_url = ['https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth']
+                    
+                else:    # 'RealESRGAN_x4plus_anime_6B'
+                    model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=4)
+                    netscale = 4
+                    file_url = ['https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth']
+                    
+                weights_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights')
+                model_path = os.path.join(weights_path, f'{model_name}.pth')
+                
+                if not os.path.isfile(model_path):
+                    for url in file_url:
+                        model_path = load_file_from_url(url=url, model_dir=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'weights'),
+                                                        progress=True, file_name=None)
+                
+                self._realesrgan_model = RealESRGANer(
+                            scale=netscale,
+                            model_path=model_path,
+                            dni_weight=None,
+                            model=model,
+                            tile=400,
+                            tile_pad=10,
+                            pre_pad=0,
+                            half=device=='cuda',
+                            device=device
+                            )
+                
+                self._realesrgan_model_name = model_name
+                
+            height, width = img_array.shape[:2]
+            very_small = max(width, height) < 150
+            if very_small:
+                
+                image = image.resize((width*2, height*2), Image.LANCZOS)
+                img_array = np.array(image)
+                        
+                        
+            
+        except (ImportError, Exception) as e:
+            print(f'Advanced super resolution is not available: {e}')
+            self.enhance_card_image_traditional(image, card_width, card_height)
     
     def process_cards(self, cards_dict):
         """
@@ -371,11 +456,11 @@ class VideoCreation:
             card_count = len(cards_dict.keys()) - i
             
             # Resize card image to fit nicely on background
-            card_width = int(self.width * 0.70)
+            card_width = int(self.width * 0.80)
             card_height = int(card_width * (card_img.height / card_img.width))
-            # card_img_resized = card_img.resize((card_width, card_height), Image.LANCZOS)
+            resized_image = card_img.resize((card_width, card_height), Image.LANCZOS)
             
-            sharpened_image = self.enhance_card_image(card_img, card_width, card_height)
+            # sharpened_image = self.enhance_card_image(card_img, card_width, card_height)
             
             # Create a new image with blurred background
             final_img = blurred_background.copy()
@@ -385,10 +470,10 @@ class VideoCreation:
             y_offset = (self.height - card_height) // 2
             
             # Paste the card onto the background, if there is an alpah value take in account
-            if sharpened_image.mode == "RGBA":
-                final_img.paste(sharpened_image, (x_offset, y_offset), sharpened_image)
+            if resized_image.mode == "RGBA":
+                final_img.paste(resized_image, (x_offset, y_offset), resized_image)
             else:
-                final_img.paste(sharpened_image, (x_offset, y_offset))
+                final_img.paste(resized_image, (x_offset, y_offset))
             # Create a drawing context
             draw = ImageDraw.Draw(final_img)
             
