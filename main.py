@@ -20,7 +20,7 @@ if __name__ == "__main__":
     
     # Create a random video.
     video_creation = VideoCreation()
-    video_path, set_name, song_name = video_creation.build_clip(expansion_name=args.expansion_set)
+    video_path, expansion_full_name, song_name = video_creation.build_clip(expansion_name=args.expansion_set)
     
     # Upload the content to TikTok profile. 
     # content_parser = UploadContentTikTok('./video/TOP_10_EXPENSIVE_CARDS_Hidden_Legends.mp4')
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # Upload the content to the YouTube API 
     yt_parser = UploadContentYouTube(
         video_path=video_path, 
-        expansion=set_name, 
+        set_expansion=expansion_full_name, 
         artist_song=song_name)
     yt_parser.upload_to_yt()
     

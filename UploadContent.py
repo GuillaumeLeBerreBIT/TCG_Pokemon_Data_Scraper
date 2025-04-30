@@ -11,6 +11,7 @@ import threading
 import json
 import time
 import httplib2
+import textwrap
 import pickle
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -298,11 +299,11 @@ class UploadContentTikTok:
 
 class UploadContentYouTube:
     
-    def __init__(self, video_path, expansion, artist_song):
+    def __init__(self, video_path, set_expansion, artist_song):
         
         self.video_path = video_path
-        self.expansion = expansion
         self.artist_song = artist_song
+        self.set_expansion = set_expansion
         
         self.UPLOAD_SCOPE = ["https://www.googleapis.com/auth/youtube.upload"]
         self.API_SERVICE_NAME = "youtube"   
@@ -316,6 +317,17 @@ class UploadContentYouTube:
         
         splitted_artist = artist_song.split('_', 1)
         return splitted_artist[0], splitted_artist[1].replace('_', ' ')
+    
+    def split_expansion_full_name(self, expansion_full_name):
+        
+        if '-' in expansion_full_name:
+            set_name, expansion_name = tuple(expansion_full_name.split('-'))
+        else:
+            expansion_name = expansion_full_name
+            set_name = None
+            
+        return set_name, expansion_name
+            
     
     def authenticate_youtube(self):
         credentials = None
@@ -341,20 +353,21 @@ class UploadContentYouTube:
     def initialize_upload(self, youtube):
         
         artist, song = self.split_artist_song(self.artist_song)
+        set_name , expansion_name = self.split_expansion_full_name(self.set_expansion)
         
         body=dict(
             snippet=dict(
-                title=f'TOP 10 EXPENSIVE CARDS {self.expansion} - {datetime.strftime(datetime.now(), "%B %Y")}',
-                description=f"""
-                Here are the Top 10 Most Expensive Cards from the {self.expansion}! 💎✨
+                title=f'TOP 10 EXPENSIVE CARDS {self.set_expansion} - {datetime.strftime(datetime.now(), "%B %Y")}',
+                description=textwrap.dedent(f"""
+                Here are the Top 10 Most Expensive Cards from the {self.set_expansion}! 💎✨
                 Watch to see which stunning alt-arts and secret rares top the list!
                 
                 🎵 Music by: {artist}
                 🎶 Track: {song}
                 #pokemon  #pokemontcg  #pokemoncards  #pokemoncommunity  #tcgcommunity  #pokemoncollector  
-                #pokemonpulls  #rarepokemon  #CrownZenith  #GallarionGallery #CZGG  #top10  
-                #lofi  #lofibeats  #lofimusic  #chillvibes
-                """,
+                #{set_name.strip().replace(' ', '').replace('&', '') if set_name else 'pokemoncollectors'} #{expansion_name.strip().replace(' ','')}
+                #pokemonpulls  #rarepokemon #top10 #lofi #lofibeats  #lofimusic  #chillvibes
+                """),
                 tags=self.tags,
                 categoryId="22"
             ),
@@ -381,6 +394,6 @@ class UploadContentYouTube:
             return result
         except Exception as e:
             
-            raise f'An HTTP error {e.resp.status} occurred: {e.content}' 
+            raise f'An HTTP error {e} occurred: {e}' 
             
             

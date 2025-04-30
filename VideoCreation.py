@@ -712,7 +712,7 @@ class VideoCreation:
         processed_images = self.process_cards(cards_dictionary)
         
         output_video, song_name = self.create_composite_clip(processed_images, set_name)
-        return output_video, set_name, song_name
+        return output_video, self.expansion_full_name, song_name
         
     def __close__(self):
         """
