@@ -15,6 +15,8 @@ import textwrap
 import pickle
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from tiktok_uploader.upload import upload_video, upload_videos
+from tiktok_uploader.auth import AuthBackend
 
 import google_auth_httplib2
 import googleapiclient.discovery
@@ -47,8 +49,7 @@ class CallbackHandler(BaseHTTPRequestHandler):
         self.wfile.write(b'Authentication successful! You can close this window now.')
         
         # Signal the server to shut down
-        threading.Thread(target=self.server.shutdown).start()
-
+        threading.Thread(target=self.server.shutdown).start()  
 
 class UploadContentTikTok:
     
@@ -69,13 +70,15 @@ class UploadContentTikTok:
         
         self.content_path = content
         self.video_size = os.path.getsize(content)
-        self.chunk_size = 5242880
+        self.chunk_size = 5542880
         self.total_chunk_count = max(1, self.video_size // self.chunk_size)
         
         self.redirect_uri = 'http://127.0.0.1:5000/callback/'
         self.token_url = 'https://open.tiktokapis.com/v2/oauth/token/'
         self.authorization_url = 'https://www.tiktok.com/v2/auth/authorize/'
         self.refresh_token_url = 'https://open-api.tiktok.com/oauth/refresh_token/'
+        
+        self.data = None
         
         
     def extract_upload_info(self):
@@ -103,39 +106,54 @@ class UploadContentTikTok:
             
             if response.status_code == 401:
                 self.refresh_access_token()
+                response = requests.post(url=url, json=payload, headers=self.headers)
+                
+                if response.status_code == 401:
+                    self.fetch_oauth_token()
+                    response = requests.post(url=url, json=payload, headers=self.headers)
+                    
+                    if response.status_code != '200':
+                        response.raise_for_status()
                             
             response.raise_for_status()
             
-            data = response.json()['data']
-            
-            return data
+            self.data = response.json()['data']
         
         except requests.exceptions.HTTPError as e:
             
             raise SystemExit(e)    
     
-    def upload_to_tiktok(self, url):
+    def upload_to_tiktok(self):
         """
         Parse the content to TikTok 
         """
-
+        
         with open(self.content_path, 'rb') as f:
             content = f.read()
+            
+        if self.video_size != len(content):
+            
+            print("Content sizes aren't identical")
         
         for idx in range(self.total_chunk_count):
             
             chunk_size = self.chunk_size if self.total_chunk_count > 1 else self.video_size
             
             start = idx * chunk_size
-            end = min(start + chunk_size, self.video_size) - 1
+            end = (start + chunk_size) -1
+            
+            if (idx +1) == self.total_chunk_count:
+                end = self.video_size-1
         
             headers = {
-                'Content-Range': f'bytes {start}-{end}/{self.video_size+1}',
+                'Content-Range': f'bytes {start}-{end}/{self.video_size}',
                 'Content-Type': 'video/mp4'
             }
             
-            response = requests.put(url, headers=headers, data=content[start:end+1])
+            response = requests.put(self.data['upload_url'], headers=headers, data=content)
             response.raise_for_status()
+            
+        print('Upload succesfull')
             
     def query_creater_info(self):
         """

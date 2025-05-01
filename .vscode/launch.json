@@ -3,6 +3,7 @@
     "configurations": [
         
 
+
         {
             "name": "Debug with Crown Zenith",
             "type": "debugpy",
@@ -10,7 +11,7 @@
             "program": "C:/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/main.py",
             "console": "integratedTerminal",
             "python": "${workspaceFolder}/venv/Scripts/python.exe",
-            "args": ["-s", "Astral Radiance"]
+            "args": ["-s", "Vivid Voltage"]
         },
     ]
 }
