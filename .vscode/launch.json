@@ -1,7 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
-        
+
 
 
         {
@@ -11,7 +11,7 @@
             "program": "C:/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/main.py",
             "console": "integratedTerminal",
             "python": "${workspaceFolder}/venv/Scripts/python.exe",
-            "args": ["-s", "Vivid Voltage"]
+            "args": ["-s", "Darkness Ablaze"]
         },
     ]
 }

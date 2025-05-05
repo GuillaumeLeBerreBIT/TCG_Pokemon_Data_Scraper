@@ -15,13 +15,6 @@ import textwrap
 import pickle
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from tiktok_uploader.upload import upload_video, upload_videos
-from tiktok_uploader.auth import AuthBackend
-
-import google_auth_httplib2
-import googleapiclient.discovery
-import googleapiclient.errors
-import googleapiclient.http
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -105,24 +98,33 @@ class UploadContentTikTok:
                 print("Init error:", response.status_code, response.json())
             
             if response.status_code == 401:
-                self.refresh_access_token()
-                response = requests.post(url=url, json=payload, headers=self.headers)
+                if self.refresh_access_token():
+                    
+                    self.headers['Authorization'] = f'Bearer {self.access_token}'
+                    response = requests.post(url=url, json=payload, headers=self.headers)
                 
                 if response.status_code == 401:
-                    self.fetch_oauth_token()
-                    response = requests.post(url=url, json=payload, headers=self.headers)
+                    token_info = self.fetch_oauth_token()
                     
-                    if response.status_code != '200':
+                    if token_info:
+                        self.access_token = token_info['access_token']
+                        
+                        self.headers['Authorization'] = f'Bearer {self.access_token}'
+                        response = requests.post(url=url, json=payload, headers=self.headers)
+                    
+                    if response.status_code != 200:
+                        print(f"Still getting error after new token: {response.status_code} {response.json()}")
                         response.raise_for_status()
                             
             response.raise_for_status()
             
             self.data = response.json()['data']
+            return self.data
         
         except requests.exceptions.HTTPError as e:
-            
+            print(f"HTTP Error: {e}")
             raise SystemExit(e)    
-    
+        
     def upload_to_tiktok(self):
         """
         Parse the content to TikTok 
@@ -220,15 +222,17 @@ class UploadContentTikTok:
                 token_info = response.json()['data']
                 
                 if token_info['access_token'] and token_info['refresh_token'] and token_info['error_code'] == 0:
-                
                     self.access_token = token_info['access_token']
                     self.renew_dotenv_values(token_info=token_info)
                     
-                return token_info
+                    self.config = dotenv_values(self.dotenv_file)
+                    return True
+            
+            return False
             
         except requests.exceptions.RequestException as e:
-            # If refresh fails, we need to do the full auth flow again >> This will to be manually accepted. 
-            raise f'Need to request a new OAtuh Access Token. The following Request Exception occured: {e}'
+            print(f'Refresh token failed: {e}')
+            return False
         
     def renew_dotenv_values(self, token_info):
         
@@ -375,7 +379,7 @@ class UploadContentYouTube:
         
         body=dict(
             snippet=dict(
-                title=f'TOP 10 EXPENSIVE CARDS {self.set_expansion} - {datetime.strftime(datetime.now(), "%B %Y")}',
+                title=f'TOP 10 EXPENSIVE CARDS {self.set_expansion} - {datetime.strftime(datetime.now(), "%B %Y")} #pokemon #tcg #top10',
                 description=textwrap.dedent(f"""
                 Here are the Top 10 Most Expensive Cards from the {self.set_expansion}! 💎✨
                 Watch to see which stunning alt-arts and secret rares top the list!

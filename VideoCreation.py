@@ -161,36 +161,66 @@ class VideoCreation:
         Returns:
             list: List of card details
         """
+        rows = []
+        if '-' in self.expansion_full_name:
+            expansion_name, set_name = tuple(self.expansion_full_name.split('-'))
         
-        self.cursor.execute("""
-            SELECT name, imageUrl, lowPrice, midPrice, highPrice, marketPrice
-            FROM pokemon 
-            WHERE setName = ? 
-            AND extNumber IS NOT '' 
-            AND extCardType IS NOT ''
-            AND (marketPrice IS NOT '' OR midPrice IS NOT '')
-            ORDER BY CAST(COALESCE(marketPrice, '0') AS REAL) DESC, 
-                CAST(COALESCE(midPrice, '0') AS REAL) DESC
-            LIMIT 10
-        """, (set_name,)
-        )
-        rows = self.cursor.fetchall()
+            try:
+                like_pattern_exp = f'%{expansion_name}%'
+                like_pattern_set = f'%{set_name}%'
+                self.cursor.execute("""
+                    SELECT name, imageUrl, lowPrice, midPrice, highPrice, marketPrice
+                    FROM pokemon 
+                    WHERE setName LIKE ? AND setName LIKE ?
+                    AND extNumber IS NOT '' 
+                    AND extCardType IS NOT ''
+                    AND (marketPrice IS NOT '' OR midPrice IS NOT '')
+                    ORDER BY CAST(COALESCE(marketPrice, '0') AS REAL) DESC, 
+                        CAST(COALESCE(midPrice, '0') AS REAL) DESC
+                    LIMIT 10
+                """, (like_pattern_exp, like_pattern_set,)
+                )
+                rows = self.cursor.fetchall()
+            except sqlite3.IntegrityError as e:
+                print(f"Couldn't query the databse: {e}")
         
         if not rows:
-            like_pattern = f'%{set_name}%'
-            self.cursor.execute("""
-                SELECT name, imageUrl, lowPrice, midPrice, highPrice, marketPrice
-                FROM pokemon 
-                WHERE setName LIKE ? 
-                AND extNumber IS NOT '' 
-                AND extCardType IS NOT ''
-                AND (marketPrice IS NOT '' OR midPrice IS NOT '')
-                ORDER BY CAST(COALESCE(marketPrice, '0') AS REAL) DESC, 
-                    CAST(COALESCE(midPrice, '0') AS REAL) DESC
-                LIMIT 10
-            """, (like_pattern,)
-            )
-            rows = self.cursor.fetchall()
+            try:
+                like_pattern = f'{set_name}%'
+                self.cursor.execute("""
+                    SELECT name, imageUrl, lowPrice, midPrice, highPrice, marketPrice
+                    FROM pokemon 
+                    WHERE setName LIKE ?
+                    AND extNumber IS NOT '' 
+                    AND extCardType IS NOT ''
+                    AND (marketPrice IS NOT '' OR midPrice IS NOT '')
+                    ORDER BY CAST(COALESCE(marketPrice, '0') AS REAL) DESC, 
+                        CAST(COALESCE(midPrice, '0') AS REAL) DESC
+                    LIMIT 10
+                """, (like_pattern,)
+                )
+                rows = self.cursor.fetchall()
+            except sqlite3.IntegrityError as e:
+                print(f"Couldn't query the databse: {e}")
+        
+        if not rows:
+            try:
+                like_pattern = f'%{set_name}%'
+                self.cursor.execute("""
+                    SELECT name, imageUrl, lowPrice, midPrice, highPrice, marketPrice
+                    FROM pokemon 
+                    WHERE setName LIKE ? 
+                    AND extNumber IS NOT '' 
+                    AND extCardType IS NOT ''
+                    AND (marketPrice IS NOT '' OR midPrice IS NOT '')
+                    ORDER BY CAST(COALESCE(marketPrice, '0') AS REAL) DESC, 
+                        CAST(COALESCE(midPrice, '0') AS REAL) DESC
+                    LIMIT 10
+                """, (like_pattern,)
+                )
+                rows = self.cursor.fetchall()
+            except sqlite3.IntegrityError as e:
+                print(f"Couldn't query the databse: {e}")
         
         return rows
     
