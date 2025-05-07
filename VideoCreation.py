@@ -661,7 +661,7 @@ class VideoCreation:
         final_video = final_video.with_audio(AudioFileClip(audio_path).subclipped(0, total_duration))
         
         # Write the final video
-        output_video = f'video/TOP_10_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}.mp4'
+        output_video = f'video/TOP_10_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}_{datetime.strftime(datetime.now(), '%m%d%Y%H%M')}.mp4'
         final_video.write_videofile(output_video, fps=24)
         return output_video, song_name
     
