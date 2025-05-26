@@ -355,20 +355,30 @@ class UploadContentYouTube:
         credentials = None
         
         if os.path.exists(self.TOKEN_PICKLE_FILE):
-            with open(self.TOKEN_PICKLE_FILE, 'rb') as token:
-                credentials = pickle.load(token)
+            try:
+                with open(self.TOKEN_PICKLE_FILE, 'rb') as token:
+                    credentials = pickle.load(token)
+            except (pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
+                print(f'Failed to load credentials: {e}')
         
         if not credentials or not credentials.valid:
             if credentials and credentials.expired and credentials.refresh_token:
-                credentials.refresh(Request())
-            else:
+                try:
+                    credentials.refresh(Request())
+                except BufferError as e:
+                    credentials = None
+            # If not valid run local server flow.
+            if not credentials or not credentials.valid:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     self.CLIENTS_SECRETS_FILE, self.UPLOAD_SCOPE)
                 credentials = flow.run_local_server(port=8080)
         
-        # Save the credentials for the next run
-            with open(self.TOKEN_PICKLE_FILE, 'wb') as token:
-                pickle.dump(credentials, token)
+            # Save the credentials for the next run
+            try:
+                with open(self.TOKEN_PICKLE_FILE, 'wb') as token:
+                    pickle.dump(credentials, token)
+            except Exception as e:
+                print('Failed to save credentials: {e}')
         
         return build(self.API_SERVICE_NAME, self.API_VERSION, credentials=credentials)
     
