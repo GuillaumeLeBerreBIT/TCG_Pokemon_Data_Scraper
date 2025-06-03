@@ -21,6 +21,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
+from google.auth.exceptions import RefreshError
 
 
 class CallbackHandler(BaseHTTPRequestHandler):
@@ -365,8 +366,9 @@ class UploadContentYouTube:
             if credentials and credentials.expired and credentials.refresh_token:
                 try:
                     credentials.refresh(Request())
-                except BufferError as e:
+                except RefreshError as e:
                     credentials = None
+                    
             # If not valid run local server flow.
             if not credentials or not credentials.valid:
                 flow = InstalledAppFlow.from_client_secrets_file(
