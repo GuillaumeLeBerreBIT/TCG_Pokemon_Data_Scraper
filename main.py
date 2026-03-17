@@ -23,9 +23,9 @@ if __name__ == "__main__":
     video_path, expansion_full_name, song_name = video_creation.build_clip(expansion_name=args.expansion_set)
     
     # Upload the content to TikTok profile. 
-    content_parser = UploadContentTikTok(video_path)
-    content_parser.extract_upload_info()
-    content_parser.upload_to_tiktok()
+    # content_parser = UploadContentTikTok(video_path)
+    # content_parser.extract_upload_info()
+    # content_parser.upload_to_tiktok()
     
     # Upload the content to the YouTube API 
     yt_parser = UploadContentYouTube(
