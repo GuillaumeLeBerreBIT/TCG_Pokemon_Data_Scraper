@@ -1,14 +1,67 @@
-venv
-database/*
-music
-full_music_video
-card_images
-backgrounds
-expansion_images
-*.json
+# Virtual environment
+venv/
+.venv/
+env/
+.env/
+
+# Environment variables
 .env
-temp/*
-video
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Credentials & tokens
 *.json
 *.pickle
+token.pickle
+credentials.json
+
+# Database
+database/*
+*.db
+*.sqlite
+*.sqlite3
+
+# Media / generated output
+music/
+full_music_video/
+card_images/
+backgrounds/
+expansion_images/
+video/
+temp/*
+*.mp4
+*.mp3
+*.wav
+*.avi
+*.mov
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+
+# Test files
 test.py
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/

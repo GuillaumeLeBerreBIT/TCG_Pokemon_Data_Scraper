@@ -1,0 +1,15 @@
+beautifulsoup4==4.12.3
+Flask
+Pillow
+python-dotenv
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+moviepy
+requests
+requests-html
+thefuzz
+opencv-python
+httplib2
+numpy
