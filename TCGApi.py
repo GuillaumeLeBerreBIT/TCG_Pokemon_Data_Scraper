@@ -1,5 +1,6 @@
 import requests
 from dotenv import load_dotenv
+from datetime import datetime
 import json
 import os 
 
@@ -31,7 +32,14 @@ class TCGApi:
     def update_state (self, path="./db/state.json"):
         """Update state"""
         
+        self.state["last_run"] = str(datetime.now().strftime('%d-%m-%Y'))
         
+        try:
+            with open(self.path_state, 'w') as json_state:
+                json.dump(self.state, json_state, indent=4)
+                
+        except Exception as e:
+            raise e        
         
     def retrieve_cards_list(self):
         """Retrieve all cards from the expansion"""
@@ -70,6 +78,9 @@ class TCGApi:
                     for expansion in data.get('data', []):
                         
                         if expansion.get('name') not in self.state.get('used_expansions', []):
+                            
+                            self.state.get('used_expansions', []).append(expansion.get('name'))
+                            self.update_state()
                             return expansion
                     
                     paging += 1
@@ -87,12 +98,40 @@ class TCGApi:
     def retrieve_expensive_cards(self):
         """Retrieve the most expensive cards of an expansion."""
         
+    def check_state(self):
+        
+        try:
+            last_run = self.state.get('last_run')
+            
+            if not last_run:
+                return
+            
+            last_run_obj = datetime.strptime(last_run, '%d-%m-%Y')
+            today = datetime.now()
+            
+            if today.month == 1:
+                prev_month = 12
+                prev_year = today.year - 1
+            else:
+                prev_month = today.month -1
+                prev_year = today.year
+                
+            is_previous_month = (last_run_obj.month == prev_month and last_run_obj.year == prev_year)
+            
+            if is_previous_month:
+                self.state['used_expansions'] = []
+            
+        except Exception as e:
+            print(e)
+        
     def get_cards_expansion(self):
-        """"""
+        """Get the cards from the expansion."""
+        
+        self.check_state()
         
         self.expansion = self.get_expansion()
         
         self.cards = self.retrieve_cards_list()
         
-        return self.expansion, self.cards
+        return self.expansion, self.cards[:10]
         
