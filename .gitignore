@@ -19,10 +19,11 @@ build/
 *.egg
 
 # Credentials & tokens
-*.json
 *.pickle
 token.pickle
 credentials.json
+client_secret*.json
+token*.json
 
 # Database
 database/*

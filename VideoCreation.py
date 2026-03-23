@@ -20,12 +20,19 @@ import numpy as np
 # from realesrgan import RealESRGANer
 # from realesrgan.archs.srvgg_arch import SRVGGNetCompact
 
+
 class VideoCreation:
     
-    def __init__(self):
+    def __init__(self, expansion, expansion_image_path, cards_dict={}):
         """
         Initialize the video creation process
         """
+        self.expansion_images_dir = './images/'
+        self.temp_folder = './temp/'
+        
+        self.expansion = expansion
+        self.cards_dict = cards_dict
+        self.expansion_image_path = expansion_image_path
         
         self.expansion_full_name = None
         
@@ -35,16 +42,16 @@ class VideoCreation:
         self.db = './database/pokemontcg.db'
         
         # Initialize database
-        self.conn = sqlite3.connect(self.db)
-        self.cursor = self.conn.cursor()
+        self.fetch_database = False
+        if not self.cards_dict and len(list(self.cards_dict.items())) < 10:
+            self.conn = sqlite3.connect(self.db)
+            self.cursor = self.conn.cursor()
+            self.fetch_database = True
         
         # Ensure output directories exist
         os.makedirs('card_images', exist_ok=True)
         os.makedirs('final_video', exist_ok=True)
         os.makedirs('expansion_images', exist_ok=True)
-        
-        self.expansion_images_dir = './expansion_images/'
-        self.temp_folder = './temp/'
         
         #Portrait sizes
         self.width = 1080
@@ -479,7 +486,7 @@ class VideoCreation:
         
         for i, (name, card) in enumerate(cards_dict.items()):
             # Open the card image >> IN Bytes
-            card_img = Image.open(card['imgBytes'])
+            card_img = Image.open(card.get('imgPath') or  card.get('imgBytes'))
             # Get the name of the Image
             #name = card['name']
             # Get the count
@@ -550,8 +557,8 @@ class VideoCreation:
             else:
                 self.create_text_border(draw, (self.width - name_width) // 2, 220, self.font_type_cards, display_name, self.fillcolor, self.shadowcolor_cards)
             
-            # # Add market price
-            price = card['marketPrice'] if card['marketPrice'] else card['midPrice']
+            # Add market price
+            price = card.get('marketPrice') or card.get('midPrice')
             price_text = f"Market Price: ${price:.2f}"
             price_width = draw.textlength(price_text, font=self.font_type_cards)
             
@@ -719,29 +726,29 @@ class VideoCreation:
         """
         Create a one minute long clip of pokemon cards.
         """
-        cards_list = []
         # Load in a set to create the video from
-        while not cards_list and len(cards_list) < 10:
+        while len(list(self.cards_dict.items())) < 10:
             # Get the set_name based on a image.
-            expansion_image, set_name = self.get_expansion_name(expansion_name)
+            self.expansion_image_path, self.expansion = self.get_expansion_name(expansion_name)
             # Retrieve the 
-            cards_list = self.query_cards(set_name)
+            self.cards_list = self.query_cards(self.expansion)
         
         # Close the connection to the DB. 
-        self.__close__()
+        if self.fetch_database: self.__close__()
         
         # Background image
         self.background_image = self.get_background_image()
             
-        self.create_header_image(expansion_image)
+        self.create_header_image(self.expansion_image_path)
         
         # Download images
-        cards_dictionary = self.download_images(cards_list)
+        if not self.cards_dict:
+            self.cards_dict = self.download_images(self.cards_list)
         
         # Process cards and get image paths
-        processed_images = self.process_cards(cards_dictionary)
+        processed_images = self.process_cards(self.cards_dict)
         
-        output_video, song_name = self.create_composite_clip(processed_images, set_name)
+        output_video, song_name = self.create_composite_clip(processed_images, self.expansion)
         return output_video, self.expansion_full_name, song_name
         
     def __close__(self):

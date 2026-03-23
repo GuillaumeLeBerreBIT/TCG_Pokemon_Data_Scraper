@@ -19,6 +19,7 @@ class TCGApi:
         }
         self.path_state="./db/state.json"
         self.state = self.read_state(path=self.path_state)
+        self.expansion_images_dir = './images/'
         
     def read_state(self, path="./db/state.json"):
         
@@ -43,6 +44,24 @@ class TCGApi:
         
     def retrieve_cards_list(self):
         """Retrieve all cards from the expansion"""
+        
+        def download_image(url, name):
+            
+            try:
+                response = requests.get(url, headers=self.headers)
+                
+                if response.status_code == 200:
+                    
+                    card_image_path = f"{self.expansion_images_dir}/{name}.png"
+                    
+                    with open(card_image_path, 'wb') as f:
+                        f.write(response.content)
+                    
+                    return card_image_path
+                
+            except Exception as e:
+                raise e
+            
         try:
             querystring = {"page":"1","per_page":"20","sort":"price_highest"}
 
@@ -52,11 +71,31 @@ class TCGApi:
             
             if response.status_code == 200:
                 
-                return response.json().get('data', [])
+                cards_list = response.json().get('data', [])
                 
             
         except requests.exceptions.RequestException as e:
             print('Problem retrieving all expansions list for pokemon cards: ', e)
+            
+        try:
+            
+            cards_dict = {}
+            for card in cards_list:
+                
+                image_path = download_image(card.get('image').replace('\\/', '/'), card.get('name_numbered').replace(' ', '_'))
+                cards_dict[card.get('name_numbered')] = {
+                    'imageUrl': card.get('image').replace('\\/', '/'),
+                    'marketPrice': card.get('prices', {}).get('cardmarket', {}).get('lowest_near_mint', ''),
+                    'imgPath': image_path
+                }
+                
+                if len(list(cards_dict.items())) >= 10:
+                    break
+                
+            return dict(list(cards_dict.items())[:10])    
+            
+        except Exception as e:
+            raise e
             
             
     def get_expansion(self):
@@ -123,6 +162,38 @@ class TCGApi:
             
         except Exception as e:
             print(e)
+            
+    def get_detail_expansion(self):
+        
+        try:
+            response = requests.get(self.base_url + f"episodes/{self.expansion.get('id')}", 
+                                headers=self.headers)
+
+            logo_url = response.json().get('data', {}).get('logo', '').replace('\\/', '/')
+            expansion_name = response.json().get('data', {}).get('name', '').replace(' ', '_')
+            
+            if not logo_url: raise Exception('No Logo found for this expansion set.')
+            
+        except Exception as e:
+            raise e
+        
+        try:
+            response = requests.get(logo_url, headers=self.headers)
+            
+            if response.status_code == 200:
+                
+                os.makedirs(self.expansion_images_dir, exist_ok=True)
+                
+                expansion_path = f'{self.expansion_images_dir}/{expansion_name}_LOGO.png'
+                
+                with open(expansion_path, 'wb') as f:
+                    f.write(response.content)
+                
+                return expansion_path
+            
+        except Exception as e:
+            raise e
+    
         
     def get_cards_expansion(self):
         """Get the cards from the expansion."""
@@ -131,7 +202,9 @@ class TCGApi:
         
         self.expansion = self.get_expansion()
         
+        self.expansion_image_path = self.get_detail_expansion()
+        
         self.cards = self.retrieve_cards_list()
         
-        return self.expansion, self.cards[:10]
+        return self.expansion, self.cards, self.expansion_image_path
         

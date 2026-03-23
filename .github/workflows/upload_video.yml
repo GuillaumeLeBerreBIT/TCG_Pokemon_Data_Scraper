@@ -1,0 +1,39 @@
+name: Generate and Upload Pokemon TCG Video
+
+on:
+  schedule:
+    - cron: '0 10 * * 1'  # Every Monday at 10:00 UTC
+  workflow_dispatch:       # Also allows manual trigger from GitHub UI
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run script
+        env:
+          TCG_BEARER: ${{ secrets.TCG_BEARER }}
+          TCG_HOST: ${{ secrets.TCG_HOST }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: python main.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add db/state.json
+          git diff --staged --quiet || git commit -m "chore: update used expansions state"
+          git push
