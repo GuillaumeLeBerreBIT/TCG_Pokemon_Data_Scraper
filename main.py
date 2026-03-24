@@ -6,9 +6,6 @@ import argparse
 
 if __name__ == "__main__":
     
-    tcg_api = TCGApi()
-    expansion, cards = tcg_api.get_cards_expansion()
-    
     parser = argparse.ArgumentParser(
         prog='TCG Pokemon Video Generator',
         description='The program will create a one minute video of showing the Top 10 most expensive pokemon cards.',
@@ -28,12 +25,12 @@ if __name__ == "__main__":
     # if args.expansion_name: expansion = args.expansion_name
     
     # Create a random video.
-    video_creation = VideoCreation(expansion=expansion.get('name', None), expansion_image_path=expansion_image_path, cards_list=cards)
+    video_creation = VideoCreation(expansion=expansion.get('name', None), expansion_image_path=expansion_image_path, cards_dict=cards)
     video_path, expansion_full_name, song_name = video_creation.build_clip()
     
     # Upload the content to the YouTube API 
-    yt_parser = UploadContentYouTube(
-        video_path=video_path, 
-        set_expansion=expansion_full_name, 
-        artist_song=song_name)
-    yt_parser.upload_to_yt()
+    # yt_parser = UploadContentYouTube(
+    #     video_path=video_path, 
+    #     set_expansion=expansion_full_name, 
+    #     artist_song=song_name)
+    # yt_parser.upload_to_yt()
