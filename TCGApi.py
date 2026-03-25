@@ -92,7 +92,7 @@ class TCGApi:
                 if len(list(cards_dict.items())) >= 10:
                     break
                 
-            return dict(list(cards_dict.items())[:10])    
+            return dict(sorted(cards_dict.items(), key=lambda item: float(item[1]['marketPrice'] or 0))[:10])    
             
         except Exception as e:
             raise e

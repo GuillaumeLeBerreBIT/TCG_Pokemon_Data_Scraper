@@ -19,6 +19,7 @@ build/
 *.egg
 
 # Credentials & tokens
+token/
 *.pickle
 token.pickle
 credentials.json

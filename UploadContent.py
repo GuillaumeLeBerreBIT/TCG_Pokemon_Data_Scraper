@@ -38,12 +38,21 @@ class UploadContentYouTube:
         self.CLIENTS_SECRETS_FILE = './token/client_secret.json'
         self.TOKEN_PICKLE_FILE = './token/token.pickle'
         
-        self.tags = ['pokemon', 'tcg', 'top10']
+        self.tags = [
+            'pokemon', 'pokemontcg', 'pokemoncards', 'tcg', 'top10',
+            'pokemonshorts', 'pokemoncollector', 'pokemoncommunity',
+            'rarepokemon', 'cardprices', 'pokemonmarket', 'pokemonpulls',
+            'tcgcommunity', 'pokemonpack', 'secretrare'
+        ]
     
     def split_artist_song(self, artist_song):
         
         splitted_artist = artist_song.split('_', 1)
-        return splitted_artist[0], splitted_artist[1].replace('_', ' ')
+        
+        if len(splitted_artist) < 2:
+            return splitted_artist[0], splitted_artist[0].replace('_', ' ')
+        else:
+            return splitted_artist[0], splitted_artist[1].replace('_', ' ')
     
     def split_expansion_full_name(self, expansion_full_name):
         
@@ -95,16 +104,19 @@ class UploadContentYouTube:
         
         body=dict(
             snippet=dict(
-                title=f'TOP 10 EXPENSIVE CARDS {self.set_expansion} - {datetime.strftime(datetime.now(), "%B %Y")} #pokemon #tcg #top10',
+                title=f'Top 10 Most Expensive {self.set_expansion} Cards ({datetime.strftime(datetime.now(), "%B %Y")}) #pokemon #tcg #shorts',
                 description=textwrap.dedent(f"""
-                Here are the Top 10 Most Expensive Cards from the {self.set_expansion}! 💎✨
-                Watch to see which stunning alt-arts and secret rares top the list!
-                
-                🎵 Music by: {artist}
-                🎶 Track: {song}
-                #pokemon  #pokemontcg  #pokemoncards  #pokemoncommunity  #tcgcommunity  #pokemoncollector  
-                #{set_name.strip().replace(' ', '').replace('&', '') if set_name else 'pokemoncollectors'} #{expansion_name.strip().replace(' ','')}
-                #pokemonpulls  #rarepokemon #top10 #lofi #lofibeats  #lofimusic  #chillvibes
+                Which card from {self.set_expansion} is worth the most right now? Here are the Top 10 Most Expensive Cards ranked by market price! 💎
+
+                Do you own any of these? Let me know in the comments! 👇
+
+                🎵 Music: {song} by {artist}
+
+                ━━━━━━━━━━━━━━━━━━━━━━
+                🔔 Subscribe for weekly Pokemon TCG price updates!
+                ━━━━━━━━━━━━━━━━━━━━━━
+
+                #pokemon #pokemontcg #pokemoncards #{expansion_name.strip().replace(' ', '')} #{set_name.strip().replace(' ', '').replace('&', '') if set_name else 'pokemoncards'} #pokemonshorts #tcgcommunity #pokemoncollector #pokemonpulls #rarepokemon #top10 #cardprices #pokemonmarket
                 """),
                 tags=self.tags,
                 categoryId="22"
@@ -128,7 +140,7 @@ class UploadContentYouTube:
         youtube = self.authenticate_youtube()
         try:
             result = self.initialize_upload(youtube)
-            print('Download succesfully completed.')
+            print('Upload succesfully completed.')
             return result
         except Exception as e:
             

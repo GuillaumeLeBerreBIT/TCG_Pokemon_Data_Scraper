@@ -684,6 +684,7 @@ class VideoCreation:
         
         if song_path.endswith('.mp4'):
             video = VideoFileClip(song_path)
+            os.makedirs('./temp/music/', exist_ok=True)
             extracted_audio_path = f'./temp/music/{song}.mp3'
             video.audio.write_audiofile(extracted_audio_path)
             video.close()

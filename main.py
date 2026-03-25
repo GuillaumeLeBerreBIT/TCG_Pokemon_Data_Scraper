@@ -29,8 +29,12 @@ if __name__ == "__main__":
     video_path, expansion_full_name, song_name = video_creation.build_clip()
     
     # Upload the content to the YouTube API 
-    # yt_parser = UploadContentYouTube(
-    #     video_path=video_path, 
-    #     set_expansion=expansion_full_name, 
-    #     artist_song=song_name)
-    # yt_parser.upload_to_yt()
+    yt_parser = UploadContentYouTube(
+        video_path=video_path, 
+        set_expansion=expansion_full_name, 
+        artist_song=song_name,
+        # video_path='./video/TOP_10_EXPENSIVE_CARDS_Twilight_Masquerade_032520262241.mp4', 
+        # set_expansion='Twilight Masquarade', 
+        # artist_song='Lofi'
+        )
+    yt_parser.upload_to_yt()
