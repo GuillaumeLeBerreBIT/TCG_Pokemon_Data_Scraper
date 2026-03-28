@@ -10,9 +10,15 @@ from moviepy.video.fx import CrossFadeIn, CrossFadeOut
 from moviepy.video.compositing import CompositeVideoClip
 from moviepy import *
 from datetime import datetime
+from dotenv import load_dotenv
+from auth.google_auth import GoogleAuth
 
 import cv2
 import numpy as np
+
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaIoBaseDownload
 
 # import torch
 # from basicsr.archs.rrdbnet_arch import RRDBNet
@@ -27,6 +33,9 @@ class VideoCreation:
         """
         Initialize the video creation process
         """
+        load_dotenv('./.env')
+        self.CREDENTIALS = GoogleAuth.get_credentials()
+        
         self.expansion_images_dir = './images/'
         self.temp_folder = './temp/'
         
@@ -673,15 +682,9 @@ class VideoCreation:
         return output_video, song_name
     
     def get_music(self):
-        music_folder = [s for s in os.listdir('./music/') if s.endswith('.mp4')]
         
-        if not music_folder:
-            print("No music files found in ./music/ directory")
-            return None, None
-            
-        song_path = os.path.join('./music/', random.choice(music_folder))
-        song, _ = os.path.splitext(os.path.basename(song_path))
-        
+        song_path, song = self.retrieve_audio_file()
+                
         if song_path.endswith('.mp4'):
             video = VideoFileClip(song_path)
             os.makedirs('./temp/music/', exist_ok=True)
@@ -695,7 +698,46 @@ class VideoCreation:
             # If it's already an audio file
             return song_path, AudioFileClip(song_path)
                 
+    def retrieve_audio_file(self):
         
+        service = build('drive', 'v3', credentials=self.CREDENTIALS)
+        
+        results = service.files().list(
+            q=f"'{os.getenv('GOOGLE_DRIVE_ID')}' in parents",
+            fields='files(id, name, mimeType)'
+        ).execute()
+        
+        files = results.get('files', [])
+        
+        if not files:
+            raise FileNotFoundError('No files could be found on the Google Drive')
+        try:
+            f = random.choice(files)
+            
+            request = service.files().get_media(fileId= f.get('id'))
+            
+            file = BytesIO()
+            
+            downloader = MediaIoBaseDownload(file, request)
+            done = False
+            while done is False:
+                status, done = downloader.next_chunk()
+                
+        except HttpError as e:
+            print(f"An error occurred: {e}")
+            file = None
+            
+        save_path = f'./music/{f.get('name', '')}'
+            
+        try:
+            os.makedirs('./music/', exist_ok=True)
+            with open(save_path, 'wb') as out:
+                out.write(file.getvalue())
+        except Exception as e:
+            raise e
+
+        return save_path, os.splitext(f.get('name', ''))
+    
     def get_audio(self, total_duration, audio, song):
         """
         Find the audio file to add onto the Composite video clip.
@@ -764,3 +806,9 @@ class VideoCreation:
         """
         
         pass
+    
+    
+if __name__ == "__main__":
+    
+    video_creation = VideoCreation('', '', {f'card_{i}': i for i in range(11)})
+    video_creation.retrieve_audio_files()

@@ -2,7 +2,7 @@ from tracklist import TRACKLIST
 from moviepy import VideoFileClip
 import os, pathlib
 
-FULL_VIDEO = "/Users/GuillaumeLeBerre/VisualStudioCode/Projects_Guillaume/Python_Automation/TCG_POKEMON_DATA_SCRAPER/full_music_video/Pokémon_LoFi _No_Copyright_Music_Mix_Free_DMCA.mp4"
+FULL_VIDEO = "/Users/guillaumeleberre/Downloads/YTDown.com_YouTube_Pokemon-_-Chill-Mix-LoFi-No-Copyright-Mu_Media_-B-BltVcDJE_001_1080p.mp4"
 tracklist  = VideoFileClip(FULL_VIDEO)
 
 for name, tup in TRACKLIST.items():

@@ -15,6 +15,7 @@ import textwrap
 import pickle
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from auth.google_auth import GoogleAuth
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -38,11 +39,13 @@ class UploadContentYouTube:
         self.CLIENTS_SECRETS_FILE = './token/client_secret.json'
         self.TOKEN_PICKLE_FILE = './token/token.pickle'
         
+        self.CREDENTIALS = GoogleAuth.get_credentials()
+        
         self.tags = [
             'pokemon', 'pokemontcg', 'pokemoncards', 'tcg', 'top10',
             'pokemonshorts', 'pokemoncollector', 'pokemoncommunity',
             'rarepokemon', 'cardprices', 'pokemonmarket', 'pokemonpulls',
-            'tcgcommunity', 'pokemonpack', 'secretrare'
+            'tcgcommunity', 'pokemonpack', 'secretrare',
         ]
     
     def split_artist_song(self, artist_song):
@@ -66,36 +69,8 @@ class UploadContentYouTube:
             
     
     def authenticate_youtube(self):
-        credentials = None
         
-        if os.path.exists(self.TOKEN_PICKLE_FILE):
-            try:
-                with open(self.TOKEN_PICKLE_FILE, 'rb') as token:
-                    credentials = pickle.load(token)
-            except (pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
-                print(f'Failed to load credentials: {e}')
-        
-        if not credentials or not credentials.valid:
-            if credentials and credentials.expired and credentials.refresh_token:
-                try:
-                    credentials.refresh(Request())
-                except RefreshError as e:
-                    credentials = None
-                    
-            # If not valid run local server flow.
-            if not credentials or not credentials.valid:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.CLIENTS_SECRETS_FILE, self.UPLOAD_SCOPE)
-                credentials = flow.run_local_server(port=8080)
-        
-            # Save the credentials for the next run
-            try:
-                with open(self.TOKEN_PICKLE_FILE, 'wb') as token:
-                    pickle.dump(credentials, token)
-            except Exception as e:
-                print('Failed to save credentials: {e}')
-        
-        return build(self.API_SERVICE_NAME, self.API_VERSION, credentials=credentials)
+        return build(self.API_SERVICE_NAME, self.API_VERSION, credentials=self.CREDENTIALS)
     
     def initialize_upload(self, youtube):
         
