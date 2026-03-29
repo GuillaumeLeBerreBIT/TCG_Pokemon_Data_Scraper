@@ -27,19 +27,22 @@ from google.auth.exceptions import RefreshError
 
 class UploadContentYouTube:
     
-    def __init__(self, video_path, set_expansion, artist_song):
+    def __init__(self, video_path='', set_expansion='', artist_song=''):
         
         self.video_path = video_path
         self.artist_song = artist_song
         self.set_expansion = set_expansion
         
-        self.UPLOAD_SCOPE = ["https://www.googleapis.com/auth/youtube.upload"]
+        self.UPLOAD_SCOPE = [
+            "https://www.googleapis.com/auth/youtube.upload",
+            "https://www.googleapis.com/auth/youtube.readonly",
+        ]
         self.API_SERVICE_NAME = "youtube"   
         self.API_VERSION = "v3"
         self.CLIENTS_SECRETS_FILE = './token/client_secret.json'
-        self.TOKEN_PICKLE_FILE = './token/token.pickle'
+        self.TOKEN_PICKLE_FILE = './token/token.youtube.pickle'
         
-        self.CREDENTIALS = GoogleAuth.get_credentials()
+        self.CREDENTIALS = GoogleAuth.get_credentials(self.TOKEN_PICKLE_FILE, self.UPLOAD_SCOPE)
         
         self.tags = [
             'pokemon', 'pokemontcg', 'pokemoncards', 'tcg', 'top10',
@@ -97,7 +100,8 @@ class UploadContentYouTube:
                 categoryId="22"
             ),
             status=dict(
-                privacyStatus='public'
+                privacyStatus='public',
+                madeForKids=False
             )
         )
         
@@ -120,5 +124,17 @@ class UploadContentYouTube:
         except Exception as e:
             
             raise f'An HTTP error {e} occurred: {e}' 
+        
+    def list_channels(self):
+        youtube = self.authenticate_youtube()
+        
+        channels = youtube.channels().list(part="snippet", mine=True).execute()
+        for c in channels.get('items', []):
+            print(c['id'], c['snippet']['title'])
             
-            
+
+if __name__ == '__main__':
+    
+    upload_content = UploadContentYouTube()
+    upload_content.list_channels()
+    

@@ -32,9 +32,6 @@ if __name__ == "__main__":
     yt_parser = UploadContentYouTube(
         video_path=video_path, 
         set_expansion=expansion_full_name, 
-        artist_song=song_name,
-        # video_path='./video/TOP_10_EXPENSIVE_CARDS_Twilight_Masquerade_032520262241.mp4', 
-        # set_expansion='Twilight Masquarade', 
-        # artist_song='Lofi'
+        artist_song=song_name
         )
     yt_parser.upload_to_yt()

@@ -107,7 +107,7 @@ class TCGApi:
                 response = requests.get(self.base_url + "/episodes/", 
                                     headers=self.headers,
                                     params={
-                                        "paging": paging
+                                        "page": paging
                                     })
                 
                 if response.status_code == 200:
@@ -125,11 +125,9 @@ class TCGApi:
                     paging += 1
                     
                     if paging > data.get('paging', {}).get('total', 0): break
-
-                response.raise_for_status()
-                
-            raise Exception('Unable to find an expansion that has not been processed')
-            
+                else:
+                    response.raise_for_status()
+                            
         except requests.exceptions.RequestException as e:
             print('Problem retrieving all expansions list for pokemon cards: ', e)
         

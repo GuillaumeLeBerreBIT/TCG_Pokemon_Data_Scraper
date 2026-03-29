@@ -3,6 +3,7 @@ import requests
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 import os
+import shutil
 import random
 from thefuzz import process
 from moviepy import ImageClip
@@ -34,7 +35,11 @@ class VideoCreation:
         Initialize the video creation process
         """
         load_dotenv('./.env')
-        self.CREDENTIALS = GoogleAuth.get_credentials()
+        self.SCOPES = [
+            "https://www.googleapis.com/auth/drive"
+        ]   
+        self.TOKEN_PICKLE_FILE = './token/token.drive.pickle'
+        self.CREDENTIALS = GoogleAuth.get_credentials(self.TOKEN_PICKLE_FILE, self.SCOPES)
         
         self.expansion_images_dir = './images/'
         self.temp_folder = './temp/'
@@ -43,7 +48,7 @@ class VideoCreation:
         self.cards_dict = cards_dict
         self.expansion_image_path = expansion_image_path
         
-        self.expansion_full_name = None
+        self.expansion_full_name = expansion if expansion else None
         
         self.headers = {
             'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
@@ -61,6 +66,9 @@ class VideoCreation:
         os.makedirs('card_images', exist_ok=True)
         os.makedirs('final_video', exist_ok=True)
         os.makedirs('expansion_images', exist_ok=True)
+        os.makedirs('./temp/', exist_ok=True)
+        os.makedirs('./temp/images/', exist_ok=True)
+        os.makedirs('./temp/music/', exist_ok=True)
         
         #Portrait sizes
         self.width = 1080
@@ -716,9 +724,9 @@ class VideoCreation:
             
             request = service.files().get_media(fileId= f.get('id'))
             
-            file = BytesIO()
+            song = BytesIO()
             
-            downloader = MediaIoBaseDownload(file, request)
+            downloader = MediaIoBaseDownload(song, request)
             done = False
             while done is False:
                 status, done = downloader.next_chunk()
@@ -732,11 +740,11 @@ class VideoCreation:
         try:
             os.makedirs('./music/', exist_ok=True)
             with open(save_path, 'wb') as out:
-                out.write(file.getvalue())
+                out.write(song.getvalue())
         except Exception as e:
             raise e
 
-        return save_path, os.splitext(f.get('name', ''))
+        return save_path, os.path.splitext(f.get('name', ''))[0]
     
     def get_audio(self, total_duration, audio, song):
         """
@@ -792,6 +800,9 @@ class VideoCreation:
         processed_images = self.process_cards(self.cards_dict)
         
         output_video, song_name = self.create_composite_clip(processed_images, self.expansion)
+        
+        self.clean_temp_folder()
+        
         return output_video, self.expansion_full_name, song_name
         
     def __close__(self):
@@ -805,7 +816,9 @@ class VideoCreation:
         Clean the folders out of unwanted metadata.
         """
         
-        pass
+        if os.path.exists('./temp'):
+            shutil.rmtree('./temp')
+            os.makedirs('./temp')
     
     
 if __name__ == "__main__":
