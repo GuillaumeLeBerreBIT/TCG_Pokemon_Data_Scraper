@@ -91,7 +91,7 @@ class VideoCreation:
         self.shadowcolor_cards = 'green'
         
          # Define duration parameters
-        self.clip_duration = 6  # Seconds each clip stays (including fade time)
+        self.clip_duration = 4  # Seconds each clip stays (including fade time)
         self.fade_duration = 1  # Seconds for fade effects
         
         self._realesrgan_model = None

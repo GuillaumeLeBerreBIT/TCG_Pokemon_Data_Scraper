@@ -1,4 +1,3 @@
-from TCGCSVScraper import TCGCSVScraper
 from VideoCreation import VideoCreation
 from UploadContent import UploadContentYouTube
 from TCGApi import TCGApi
@@ -11,14 +10,8 @@ if __name__ == "__main__":
         description='The program will create a one minute video of showing the Top 10 most expensive pokemon cards.',
     )
     parser.add_argument('-s', '--expansion_name',)
-    parser.add_argument('-rdb', '--renew_database', action='store_true')
     args = parser.parse_args()
     
-    if args.renew_database:
-        # Start scraping the CSV data again. 
-        scraper = TCGCSVScraper()
-        scraper.parser()
-        
     tcg_api = TCGApi()
     expansion, cards, expansion_image_path = tcg_api.get_cards_expansion()
     

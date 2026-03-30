@@ -89,10 +89,10 @@ class TCGApi:
                     'imgPath': image_path
                 }
                 
-                if len(list(cards_dict.items())) >= 10:
+                if len(list(cards_dict.items())) >= 15:
                     break
                 
-            return dict(sorted(cards_dict.items(), key=lambda item: float(item[1]['marketPrice'] or 0))[:10])    
+            return dict(sorted(cards_dict.items(), key=lambda item: float(item[1]['marketPrice'] or 0))[:15])    
             
         except Exception as e:
             raise e
