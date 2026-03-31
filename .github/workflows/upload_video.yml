@@ -12,7 +12,7 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    environment: production
+    environment: TCG_API
 
     steps:
       - name: Checkout repo
