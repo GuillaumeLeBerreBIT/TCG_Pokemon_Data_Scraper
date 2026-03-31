@@ -50,6 +50,14 @@ temp/*
 *.gif
 *.webp
 
+# Allow background and font assets
+!backgrounds/
+!backgrounds/*
+!font/
+!font/*
+!images/
+!images/*
+
 # Test files
 test.py
 
