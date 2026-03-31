@@ -40,7 +40,7 @@ class VideoCreation:
             "https://www.googleapis.com/auth/drive"
         ]
         self.TOKEN_PICKLE_FILE = os.path.join(self.BASE_DIR, 'token', 'token.drive.pickle')
-        self.CREDENTIALS = GoogleAuth.get_credentials(self.TOKEN_PICKLE_FILE, self.SCOPES)
+        self.CREDENTIALS = GoogleAuth.get_credentials(self.TOKEN_PICKLE_FILE, self.SCOPES, instance='DRIVE')
 
         self.expansion_images_dir = os.path.join(self.BASE_DIR, 'images')
         self.temp_folder = os.path.join(self.BASE_DIR, 'temp')

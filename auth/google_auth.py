@@ -11,15 +11,26 @@ class GoogleAuth:
     
     @classmethod
     def get_credentials(cls, token_file, scopes, instance='YOUTUBE'):
+        
         credentials = None
-        # credentials = Credentials(
-        #     token=None,
-        #     refresh_token=os.getenv(f'{instance}_REFRESH_TOKEN'),
-        #     token_uri='https://oauth2.googleapis.com/token',
-        #     client_id=os.getenv(f'{instance}_CLIENT_ID'),
-        #     client_secret=os.getenv(f'{instance}_CLIENT_SECRET'),
-        #     scopes=scopes
-        #     )
+        client_id = os.getenv(f'{instance}_CLIENT_ID')
+        client_secret = os.getenv(f'{instance}_CLIENT_SECRET')
+        refresh_token = os.getenv(f'{instance}_REFRESH_TOKEN')
+
+        if client_id and client_secret and refresh_token:
+                try:
+                    credentials = Credentials(
+                        token=None,
+                        refresh_token=os.getenv(f'{instance}_REFRESH_TOKEN'),
+                        token_uri='https://oauth2.googleapis.com/token',
+                        client_id=os.getenv(f'{instance}_CLIENT_ID'),
+                        client_secret=os.getenv(f'{instance}_CLIENT_SECRET'),
+                        scopes=scopes
+                        )
+                    
+                    credentials.refresh(Request())
+                except (RefreshError, ValueError) as e:
+                    raise Exception('Unable to retrieve the correct credentials.')
         
         if os.path.exists(token_file):
             try:

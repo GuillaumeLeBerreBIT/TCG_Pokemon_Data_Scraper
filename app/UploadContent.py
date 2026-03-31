@@ -43,7 +43,8 @@ class UploadContentYouTube:
         self.CLIENTS_SECRETS_FILE = os.path.join(BASE_DIR, 'token', 'client_secret.json')
         self.TOKEN_PICKLE_FILE = os.path.join(BASE_DIR, 'token', 'token.youtube.pickle')
         
-        self.CREDENTIALS = GoogleAuth.get_credentials(self.TOKEN_PICKLE_FILE, self.UPLOAD_SCOPE)
+        self.CREDENTIALS = GoogleAuth.get_credentials(self.TOKEN_PICKLE_FILE, self.UPLOAD_SCOPE,
+                                                      instance='YOUTUBE')
         
         self.tags = [
             'pokemon', 'pokemontcg', 'pokemoncards', 'tcg', 'top10',
