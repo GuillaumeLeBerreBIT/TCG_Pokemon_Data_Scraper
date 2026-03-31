@@ -8,8 +8,9 @@ class TCGApi:
     
     def __init__(self, base_url="https://pokemon-tcg-api.p.rapidapi.com/"):
         
-        load_dotenv('.env')
-                
+        self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        load_dotenv(os.path.join(self.BASE_DIR, '.env'))
+
         self.base_url = base_url
         self.token = os.getenv('TCG_BEARER')
         self.headers = {
@@ -17,11 +18,11 @@ class TCGApi:
             "x-rapidapi-host": os.getenv('TCG_HOST'),
             "Content-Type": "application/json"
         }
-        self.path_state="./db/state.json"
+        self.path_state = os.path.join(self.BASE_DIR, 'db', 'state.json')
         self.state = self.read_state(path=self.path_state)
-        self.expansion_images_dir = './images/'
+        self.expansion_images_dir = os.path.join(self.BASE_DIR, 'images')
         
-    def read_state(self, path="./db/state.json"):
+    def read_state(self, path):
         
         try:
             with open(path, 'r') as state_json:
@@ -30,7 +31,7 @@ class TCGApi:
         except FileNotFoundError as e:
             raise e
         
-    def update_state (self, path="./db/state.json"):
+    def update_state(self):
         """Update state"""
         
         self.state["last_run"] = str(datetime.now().strftime('%d-%m-%Y'))

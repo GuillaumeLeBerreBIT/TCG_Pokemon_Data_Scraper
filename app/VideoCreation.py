@@ -34,54 +34,44 @@ class VideoCreation:
         """
         Initialize the video creation process
         """
-        load_dotenv('./.env')
+        self.BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        load_dotenv(os.path.join(self.BASE_DIR, '.env'))
         self.SCOPES = [
             "https://www.googleapis.com/auth/drive"
-        ]   
-        self.TOKEN_PICKLE_FILE = './token/token.drive.pickle'
+        ]
+        self.TOKEN_PICKLE_FILE = os.path.join(self.BASE_DIR, 'token', 'token.drive.pickle')
         self.CREDENTIALS = GoogleAuth.get_credentials(self.TOKEN_PICKLE_FILE, self.SCOPES)
-        
-        self.expansion_images_dir = './images/'
-        self.temp_folder = './temp/'
-        
+
+        self.expansion_images_dir = os.path.join(self.BASE_DIR, 'images')
+        self.temp_folder = os.path.join(self.BASE_DIR, 'temp')
+
         self.expansion = expansion
         self.cards_dict = cards_dict
         self.expansion_image_path = expansion_image_path
-        
+
         self.expansion_full_name = expansion if expansion else None
-        
+
         self.headers = {
             'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
         }
-        self.db = './database/pokemontcg.db'
-        
-        # Initialize database
-        self.fetch_database = False
-        if not self.cards_dict and len(list(self.cards_dict.items())) < 10:
-            self.conn = sqlite3.connect(self.db)
-            self.cursor = self.conn.cursor()
-            self.fetch_database = True
-        
+
         # Ensure output directories exist
-        os.makedirs('card_images', exist_ok=True)
-        os.makedirs('final_video', exist_ok=True)
-        os.makedirs('expansion_images', exist_ok=True)
-        os.makedirs('./temp/', exist_ok=True)
-        os.makedirs('./temp/images/', exist_ok=True)
-        os.makedirs('./temp/music/', exist_ok=True)
-        
+        os.makedirs(os.path.join(self.BASE_DIR, 'temp', 'images'), exist_ok=True)
+        os.makedirs(os.path.join(self.BASE_DIR, 'temp', 'music'), exist_ok=True)
+        os.makedirs(os.path.join(self.BASE_DIR, 'video'), exist_ok=True)
+
         #Portrait sizes
         self.width = 1080
         self.height = 1980
-        
+
         self.background_image = None
-        self.header_image_path = './temp/images/{}_EXPANSION_IMAGE.jpg'
-        self.ending_image_path = './temp/images/{}_{}_ENDING.jpg'
-        
+        self.header_image_path = os.path.join(self.BASE_DIR, 'temp', 'images', '{}_EXPANSION_IMAGE.jpg')
+        self.ending_image_path = os.path.join(self.BASE_DIR, 'temp', 'images', '{}_{}_ENDING.jpg')
+
         try:
             # Load a font type specific to Pokemon styled theme
-            self.font_type_large = ImageFont.truetype('./font/Bangers-Regular.ttf', 150)
-            self.font_type_cards = ImageFont.truetype('./font/Bangers-Regular.ttf', 120)
+            self.font_type_large = ImageFont.truetype(os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), 150)
+            self.font_type_cards = ImageFont.truetype(os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), 120)
         except IOError:
             self.font_type_large = ImageFont.load_default(size=150)
             self.font_type_cards = ImageFont.load_default(size=120)
@@ -170,9 +160,10 @@ class VideoCreation:
         Get the background image for all the cards.
         """
         
-        images = [f for f in os.listdir('./backgrounds') if f.endswith(('.jpg', '.png'))]
-        
-        return os.path.join('./backgrounds', random.choice(images))
+        backgrounds_dir = os.path.join(self.BASE_DIR, 'backgrounds')
+        images = [f for f in os.listdir(backgrounds_dir) if f.endswith(('.jpg', '.png'))]
+
+        return os.path.join(backgrounds_dir, random.choice(images))
         
                 
     def query_cards(self, set_name):
@@ -357,7 +348,7 @@ class VideoCreation:
         # Save as RGB (removing alpha channel if present)
         self.header_image_path = self.header_image_path.format(name)
         final_img = final_img.convert('RGB')
-        final_img.save(self.header_image_path.format(name))
+        final_img.save(self.header_image_path)
     
     def create_ending_image(self, music_name):
         """
@@ -386,7 +377,8 @@ class VideoCreation:
         
         for text in lines:
             
-            text_width = self.font_type_large.getbbox(text)[2]
+            bbox = self.font_type_large.getbbox(text)
+            text_width = bbox[2] - bbox[0]
             
             self.create_text_border(draw, (self.width - text_width) // 2, current_y, self.font_type_large, text, self.fillcolor, self.shadowcolor_headers)
             
@@ -576,13 +568,13 @@ class VideoCreation:
             
             # Add market price
             price = card.get('marketPrice') or card.get('midPrice')
-            price_text = f"Market Price: ${price:.2f}"
+            price_text = f"Market Price: ${float(price):.2f}"
             price_width = draw.textlength(price_text, font=self.font_type_cards)
             
             self.create_text_border(draw, (self.width - price_width) // 2,  self.height - 300, self.font_type_cards, price_text, self.fillcolor, self.shadowcolor_cards)
             
             # Save the final image > remove backslashes otherwise incomplete paths. 
-            output_path = f'./temp/images/{name.replace('/', '-')}_PRICE_CARD.png'
+            output_path = os.path.join(self.BASE_DIR, 'temp', 'images', f"{name.replace('/', '-')}_PRICE_CARD.png")
             final_img = final_img.convert('RGB')
             final_img.save(output_path, format='PNG')
             processed_images.append(output_path)
@@ -685,7 +677,7 @@ class VideoCreation:
         final_video = final_video.with_audio(AudioFileClip(audio_path).subclipped(0, total_duration))
         
         # Write the final video
-        output_video = f'video/TOP_10_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}_{datetime.strftime(datetime.now(), '%m%d%Y%H%M')}.mp4'
+        output_video = os.path.join(self.BASE_DIR, 'video', f"TOP_10_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}_{datetime.strftime(datetime.now(), '%m%d%Y%H%M')}.mp4")
         final_video.write_videofile(output_video, fps=24)
         return output_video, song_name
     
@@ -695,8 +687,8 @@ class VideoCreation:
                 
         if song_path.endswith('.mp4'):
             video = VideoFileClip(song_path)
-            os.makedirs('./temp/music/', exist_ok=True)
-            extracted_audio_path = f'./temp/music/{song}.mp3'
+            os.makedirs(os.path.join(self.BASE_DIR, 'temp', 'music'), exist_ok=True)
+            extracted_audio_path = os.path.join(self.BASE_DIR, 'temp', 'music', f'{song}.mp3')
             video.audio.write_audiofile(extracted_audio_path)
             video.close()
             
@@ -735,10 +727,10 @@ class VideoCreation:
             print(f"An error occurred: {e}")
             file = None
             
-        save_path = f'./music/{f.get('name', '')}'
-            
+        save_path = os.path.join(self.BASE_DIR, 'music', f.get('name', ''))
+
         try:
-            os.makedirs('./music/', exist_ok=True)
+            os.makedirs(os.path.join(self.BASE_DIR, 'music'), exist_ok=True)
             with open(save_path, 'wb') as out:
                 out.write(song.getvalue())
         except Exception as e:
@@ -768,33 +760,19 @@ class VideoCreation:
             adjusted_audio = audio.subclipped(0, total_duration)
         
         # Save the adjusted audio to a temporary file
-        adjusted_audio_path = f'./temp/music/{song}_ADJUSTED_AUDIO.mp3'
+        adjusted_audio_path = os.path.join(self.BASE_DIR, 'temp', 'music', f'{song}_ADJUSTED_AUDIO.mp3')
         adjusted_audio.write_audiofile(adjusted_audio_path)
         return adjusted_audio_path
                 
         
-    def build_clip(self, expansion_name=None):
+    def build_clip(self):
         """
         Create a one minute long clip of pokemon cards.
         """
-        # Load in a set to create the video from
-        while len(list(self.cards_dict.items())) < 10:
-            # Get the set_name based on a image.
-            self.expansion_image_path, self.expansion = self.get_expansion_name(expansion_name)
-            # Retrieve the 
-            self.cards_list = self.query_cards(self.expansion)
-        
-        # Close the connection to the DB. 
-        if self.fetch_database: self.__close__()
-        
         # Background image
         self.background_image = self.get_background_image()
-            
+
         self.create_header_image(self.expansion_image_path)
-        
-        # Download images
-        if not self.cards_dict:
-            self.cards_dict = self.download_images(self.cards_list)
         
         # Process cards and get image paths
         processed_images = self.process_cards(self.cards_dict)
@@ -816,9 +794,19 @@ class VideoCreation:
         Clean the folders out of unwanted metadata.
         """
         
-        if os.path.exists('./temp'):
-            shutil.rmtree('./temp')
-            os.makedirs('./temp')
+        temp_dir = os.path.join(self.BASE_DIR, 'temp')
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+            os.makedirs(temp_dir)
+
+        for folder in ['music', 'images']:
+            folder_path = os.path.join(self.BASE_DIR, folder)
+            if os.path.exists(folder_path):
+                for f in os.listdir(folder_path):
+                    file_path = os.path.join(folder_path, f)
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+            
     
     
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
-from VideoCreation import VideoCreation
-from UploadContent import UploadContentYouTube
-from TCGApi import TCGApi
+from app.VideoCreation import VideoCreation
+from app.UploadContent import UploadContentYouTube
+from app.TCGApi import TCGApi
 import argparse
 
 if __name__ == "__main__":

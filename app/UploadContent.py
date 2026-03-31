@@ -39,8 +39,9 @@ class UploadContentYouTube:
         ]
         self.API_SERVICE_NAME = "youtube"   
         self.API_VERSION = "v3"
-        self.CLIENTS_SECRETS_FILE = './token/client_secret.json'
-        self.TOKEN_PICKLE_FILE = './token/token.youtube.pickle'
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.CLIENTS_SECRETS_FILE = os.path.join(BASE_DIR, 'token', 'client_secret.json')
+        self.TOKEN_PICKLE_FILE = os.path.join(BASE_DIR, 'token', 'token.youtube.pickle')
         
         self.CREDENTIALS = GoogleAuth.get_credentials(self.TOKEN_PICKLE_FILE, self.UPLOAD_SCOPE)
         
@@ -82,9 +83,9 @@ class UploadContentYouTube:
         
         body=dict(
             snippet=dict(
-                title=f'Top 10 Most Expensive {self.set_expansion} Cards ({datetime.strftime(datetime.now(), "%B %Y")}) #pokemon #tcg #shorts',
+                title=f'Top 15 Most Expensive {self.set_expansion} Cards ({datetime.strftime(datetime.now(), "%B %Y")}) #pokemon #tcg #shorts',
                 description=textwrap.dedent(f"""
-                Which card from {self.set_expansion} is worth the most right now? Here are the Top 10 Most Expensive Cards ranked by market price! 💎
+                Which card from {self.set_expansion} is worth the most right now? Here are the Top 15 Most Expensive Cards ranked by market price! 💎
 
                 Do you own any of these? Let me know in the comments! 👇
 

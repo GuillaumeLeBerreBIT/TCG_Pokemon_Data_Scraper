@@ -7,17 +7,19 @@ from google.oauth2.credentials import Credentials
 
 class GoogleAuth:
     
-    CLIENTS_SECRETS_FILE = './token/client_secret.json'
-    TOKEN_PICKLE_FILE = './token/token.pickle'
-    
-    SCOPES = [
-        "https://www.googleapis.com/auth/drive"
-    ]
+    CLIENTS_SECRETS_FILE = './token/client_secret.json'    
     
     @classmethod
-    def get_credentials(cls, token_file, scopes):
-        
+    def get_credentials(cls, token_file, scopes, instance='YOUTUBE'):
         credentials = None
+        # credentials = Credentials(
+        #     token=None,
+        #     refresh_token=os.getenv(f'{instance}_REFRESH_TOKEN'),
+        #     token_uri='https://oauth2.googleapis.com/token',
+        #     client_id=os.getenv(f'{instance}_CLIENT_ID'),
+        #     client_secret=os.getenv(f'{instance}_CLIENT_SECRET'),
+        #     scopes=scopes
+        #     )
         
         if os.path.exists(token_file):
             try:
