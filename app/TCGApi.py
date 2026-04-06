@@ -86,7 +86,7 @@ class TCGApi:
                 image_path = download_image(card.get('image').replace('\\/', '/'), card.get('name_numbered').replace(' ', '_'))
                 cards_dict[card.get('name_numbered')] = {
                     'imageUrl': card.get('image').replace('\\/', '/'),
-                    'marketPrice': card.get('prices', {}).get('cardmarket', {}).get('lowest_near_mint', ''),
+                    'marketPrice': card.get('prices', {}).get('tcg_player', {}).get('market_price', '') or card.get('prices', {}).get('cardmarket', {}).get('lowest_near_mint', ''),
                     'imgPath': image_path
                 }
                 
