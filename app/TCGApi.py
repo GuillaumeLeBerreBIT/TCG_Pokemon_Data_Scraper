@@ -196,14 +196,20 @@ class TCGApi:
         
     def get_cards_expansion(self):
         """Get the cards from the expansion."""
-        
+
         self.check_state()
-        
-        self.expansion = self.get_expansion()
-        
-        self.expansion_image_path = self.get_detail_expansion()
-        
-        self.cards = self.retrieve_cards_list()
-        
+
+        while True:
+            self.expansion = self.get_expansion()
+
+            if not self.expansion:
+                raise Exception("No more unused expansions available.")
+
+            self.expansion_image_path = self.get_detail_expansion()
+            self.cards = self.retrieve_cards_list()
+
+            if len(self.cards) >= 15:
+                break
+
         return self.expansion, self.cards, self.expansion_image_path
         
