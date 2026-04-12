@@ -82,6 +82,7 @@ class TCGApi:
             
             cards_dict = {}
             for card in cards_list:
+                print(card)
                 
                 image_path = download_image(card.get('image').replace('\\/', '/'), card.get('name_numbered').replace(' ', '_'))
                 cards_dict[card.get('name_numbered')] = {
@@ -92,11 +93,12 @@ class TCGApi:
                 
                 if len(list(cards_dict.items())) >= 15:
                     break
-                
+                    
             return dict(sorted(cards_dict.items(), key=lambda item: float(item[1]['marketPrice'] or 0))[:15])    
             
         except Exception as e:
-            raise e
+            
+            return {}
             
             
     def get_expansion(self):
