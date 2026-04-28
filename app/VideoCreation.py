@@ -568,7 +568,11 @@ class VideoCreation:
             
             # Add market price
             price = card.get('marketPrice') or card.get('midPrice')
-            price_text = f"Market Price: ${float(price):.2f}"
+            try:
+                price_text = f"Market Price: ${float(price):.2f}"
+            except TypeError: 
+                price_text = "Market Price: $???"
+                
             price_width = draw.textlength(price_text, font=self.font_type_cards)
             
             self.create_text_border(draw, (self.width - price_width) // 2,  self.height - 300, self.font_type_cards, price_text, self.fillcolor, self.shadowcolor_cards)
