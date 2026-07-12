@@ -1,6 +1,6 @@
 # Pokemon TCG Video Generator
 
-An automated pipeline that fetches the most expensive Pokemon TCG cards for a set expansion, renders a portrait-format video with price overlays and crossfade transitions, and uploads it as a YouTube Short — fully automated via GitHub Actions, running 5 times a day without any manual intervention.
+An automated pipeline that fetches the most expensive Pokemon TCG cards for a set expansion, renders a portrait-format video with price overlays and crossfade transitions, and uploads it as a YouTube Short — fully automated via GitHub Actions, running 5 times a day without any manual intervention. You can view the results on the [PokeVault YouTube channel](https://www.youtube.com/@PokeVault-GLB).
 
 ## What It Does
 
