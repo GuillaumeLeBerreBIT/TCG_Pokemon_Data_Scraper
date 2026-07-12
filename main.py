@@ -19,12 +19,13 @@ if __name__ == "__main__":
     
     # Create a random video.
     video_creation = VideoCreation(expansion=expansion.get('name', None), expansion_image_path=expansion_image_path, cards_dict=cards)
-    video_path, expansion_full_name, song_name = video_creation.build_clip()
-    
-    # Upload the content to the YouTube API 
+    video_path, expansion_full_name, song_name, card_count = video_creation.build_clip()
+
+    # Upload the content to the YouTube API
     yt_parser = UploadContentYouTube(
-        video_path=video_path, 
-        set_expansion=expansion_full_name, 
-        artist_song=song_name
+        video_path=video_path,
+        set_expansion=expansion_full_name,
+        artist_song=song_name,
+        card_count=card_count
         )
     yt_parser.upload_to_yt()

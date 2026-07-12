@@ -27,11 +27,12 @@ from google.auth.exceptions import RefreshError
 
 class UploadContentYouTube:
     
-    def __init__(self, video_path='', set_expansion='', artist_song=''):
-        
+    def __init__(self, video_path='', set_expansion='', artist_song='', card_count=15):
+
         self.video_path = video_path
         self.artist_song = artist_song
         self.set_expansion = set_expansion
+        self.card_count = card_count
         
         self.UPLOAD_SCOPE = [
             "https://www.googleapis.com/auth/youtube.upload",
@@ -84,9 +85,9 @@ class UploadContentYouTube:
         
         body=dict(
             snippet=dict(
-                title=f'Top 15 Most Expensive {self.set_expansion} Cards ({datetime.strftime(datetime.now(), "%B %Y")}) #pokemon #tcg #shorts',
+                title=f'Top {self.card_count} Most Expensive {self.set_expansion} Cards ({datetime.strftime(datetime.now(), "%B %Y")}) #pokemon #tcg #shorts',
                 description=textwrap.dedent(f"""
-                Which card from {self.set_expansion} is worth the most right now? Here are the Top 15 Most Expensive Cards ranked by market price! 💎
+                Which card from {self.set_expansion} is worth the most right now? Here are the Top {self.card_count} Most Expensive Cards ranked by market price! 💎
 
                 Do you own any of these? Let me know in the comments! 👇
 

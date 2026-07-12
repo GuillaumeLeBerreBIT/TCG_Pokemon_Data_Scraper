@@ -7,7 +7,7 @@ import shutil
 import random
 from thefuzz import process
 from moviepy import ImageClip
-from moviepy.video.fx import CrossFadeIn, CrossFadeOut
+from moviepy.video.fx import CrossFadeIn, CrossFadeOut, Resize
 from moviepy.video.compositing import CompositeVideoClip
 from moviepy import *
 from datetime import datetime
@@ -67,22 +67,31 @@ class VideoCreation:
         self.background_image = None
         self.header_image_path = os.path.join(self.BASE_DIR, 'temp', 'images', '{}_EXPANSION_IMAGE.jpg')
         self.ending_image_path = os.path.join(self.BASE_DIR, 'temp', 'images', '{}_{}_ENDING.jpg')
+        self.hook_image_path = os.path.join(self.BASE_DIR, 'temp', 'images', '{}_HOOK.jpg')
 
         try:
             # Load a font type specific to Pokemon styled theme
             self.font_type_large = ImageFont.truetype(os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), 150)
             self.font_type_cards = ImageFont.truetype(os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), 120)
+            self.font_type_price = ImageFont.truetype(os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), 90)
         except IOError:
             self.font_type_large = ImageFont.load_default(size=150)
             self.font_type_cards = ImageFont.load_default(size=120)
+            self.font_type_price = ImageFont.load_default(size=90)
         
         self.fillcolor = (255, 255, 255)
         self.shadowcolor_headers = 'black'
-        self.shadowcolor_cards = 'green'
+        self.shadowcolor_cards = (255, 205, 30)
         
          # Define duration parameters
-        self.clip_duration = 4  # Seconds each clip stays (including fade time)
-        self.fade_duration = 1  # Seconds for fade effects
+        self.clip_duration = 2.5  # Fallback per-card duration; the real value is computed per video from the card count
+        self.fade_duration = 0.5  # Seconds for fade effects
+        self.hook_duration = 2  # Seconds the opening hook clip stays
+        self.header_duration = 2.5  # Seconds the expansion-logo header stays
+        self.ending_duration = 3.5  # Target seconds for the closing credits clip
+        self.min_card_duration = 2.0  # Fastest pace allowed per card
+        self.max_card_duration = 4.0  # Slowest pace allowed per card
+        self.target_video_duration = 60  # Seconds the whole short aims to fill
         
         self._realesrgan_model = None
         self._realesrgan_model_name = None
@@ -385,10 +394,77 @@ class VideoCreation:
             current_y += line_height + 70
         
         self.ending_image_path = self.ending_image_path.format(song.replace(' ', '_'), name.replace(' ', '_'))
-        
+
         bck_img = bck_img.convert('RGB')
         bck_img.save(self.ending_image_path)
-    
+
+    def create_hook_image(self, cards_dict):
+        """
+        Create the opening hook image teasing the #1 most expensive card's price.
+        """
+        top_name, top_card = list(cards_dict.items())[-1]
+        price = top_card.get('marketPrice') or top_card.get('midPrice')
+
+        bck_img = Image.open(self.background_image).filter(ImageFilter.GaussianBlur(radius=10))
+        bck_img = bck_img.resize((self.width, self.height), Image.LANCZOS)
+
+        card_img = Image.open(top_card.get('imgPath') or top_card.get('imgBytes'))
+        card_width = int(self.width * 0.65)
+        card_height = int(card_width * (card_img.height / card_img.width))
+        resized_card = card_img.resize((card_width, card_height), Image.LANCZOS)
+
+        x_offset = (self.width - card_width) // 2
+        y_offset = (self.height - card_height) // 2
+
+        if resized_card.mode == "RGBA":
+            bck_img.paste(resized_card, (x_offset, y_offset), resized_card)
+        else:
+            bck_img.paste(resized_card, (x_offset, y_offset))
+
+        draw = ImageDraw.Draw(bck_img)
+
+        top_text = "This card is worth"
+        price_text = f"${float(price):.2f}!?"
+
+        top_width = draw.textlength(top_text, font=self.font_type_cards)
+        self.create_text_border(draw, (self.width - top_width) // 2, y_offset - 220, self.font_type_cards, top_text, self.fillcolor, self.shadowcolor_headers)
+
+        price_width = draw.textlength(price_text, font=self.font_type_large)
+        self.create_text_border(draw, (self.width - price_width) // 2, y_offset + card_height + 40, self.font_type_large, price_text, self.fillcolor, self.shadowcolor_headers)
+
+        self.hook_image_path = self.hook_image_path.format(top_name.replace('/', '-').replace(' ', '_'))
+        bck_img = bck_img.convert('RGB')
+        bck_img.save(self.hook_image_path)
+
+    def compute_card_clip_duration(self, card_count):
+        """
+        Spread the leftover time from the fixed target duration across the cards,
+        instead of always using a fixed per-card duration and dumping the slack
+        into the closing credits clip.
+        """
+        if card_count <= 0:
+            return self.clip_duration
+
+        fixed_intro = (self.hook_duration - self.fade_duration) + (self.header_duration - self.fade_duration)
+        available_for_cards = self.target_video_duration - self.ending_duration - self.fade_duration - fixed_intro
+        duration = self.fade_duration + available_for_cards / card_count
+
+        return max(self.min_card_duration, min(self.max_card_duration, duration))
+
+    def apply_ken_burns(self, clip, zoom_in=True):
+        """
+        Apply a subtle Ken Burns zoom effect to a clip, keeping it centered on the frame.
+        """
+        duration = clip.duration
+        start_scale, end_scale = (1.0, 1.04) if zoom_in else (1.04, 1.0)
+
+        def scale_at(t):
+            progress = min(t / duration, 1) if duration else 0
+            return start_scale + (end_scale - start_scale) * progress
+
+        zoomed_clip = Resize(scale_at).apply(clip)
+        return zoomed_clip.with_position(("center", "center"))
+
     def enhance_card_image_traditional(self, image, card_width, card_height, quality='balanced'):
         
         cv_img = np.array(image.convert('RGB'))
@@ -501,8 +577,9 @@ class VideoCreation:
             # Get the count
             card_count = len(cards_dict.keys()) - i
             
-            # Resize card image to fit nicely on background
-            card_width = int(self.width * 0.80)
+            # Resize card image to fit nicely on background, leaving headroom above
+            # for the name plate and price badge
+            card_width = int(self.width * 0.75)
             card_height = int(card_width * (card_img.height / card_img.width))
             resized_image = card_img.resize((card_width, card_height), Image.LANCZOS)
             
@@ -524,54 +601,77 @@ class VideoCreation:
             draw = ImageDraw.Draw(final_img)
             
             display_name = f'#{card_count} {name}'
-            
+
             line_height = self.font_type_cards.getbbox('Ay')[3]
-            vertical_spacing = int(line_height) * 1.5
-            y_base = 100
-            
-            # Add card name with border
-            name_width = draw.textlength(display_name, font=self.font_type_cards)
-            
-            if name_width > self.width:
-                
-                words = display_name.split(' ')
-                current_line = []
-                lines = []
-                
-                # Create lines smaller then the total width of the image. 
-                for word in words:
-                    
-                    test_line = ' '.join(current_line + [word])
-                    test_width = draw.textlength(test_line, self.font_type_cards)
-                    
-                    if test_width <= self.width:
-                        
-                        current_line.append(word)
-                    else:
-                        if current_line:
-                            lines.append(' '.join(current_line))
-                        
-                        current_line = [word]
-                
-                if current_line:
+            line_spacing = int(line_height * 1.3)
+            name_top = 50
+            max_text_width = self.width - 100
+
+            # Wrap the rank + name into lines that fit within the frame
+            words = display_name.split(' ')
+            lines = []
+            current_line = []
+            for word in words:
+                test_line = ' '.join(current_line + [word])
+                test_width = draw.textlength(test_line, font=self.font_type_cards)
+
+                if test_width <= max_text_width or not current_line:
+                    current_line.append(word)
+                else:
                     lines.append(' '.join(current_line))
-                
-                for i, line in enumerate(lines):
-                    
-                    name_width = draw.textlength(line, self.font_type_cards)
-                    y = y_base + (i * vertical_spacing)
-                    
-                    self.create_text_border(draw, (self.width - name_width) // 2, y, self.font_type_cards, line, self.fillcolor, self.shadowcolor_cards)
-                
-            else:
-                self.create_text_border(draw, (self.width - name_width) // 2, 220, self.font_type_cards, display_name, self.fillcolor, self.shadowcolor_cards)
-            
-            # Add market price
+                    current_line = [word]
+            if current_line:
+                lines.append(' '.join(current_line))
+
+            line_widths = [draw.textlength(line, font=self.font_type_cards) for line in lines]
+            block_width = max(line_widths)
+            block_height = line_spacing * (len(lines) - 1) + line_height
+
+            # Clean dark name plate behind the rank + card name for legibility
+            plate_pad_x, plate_pad_y = 50, 26
+            plate_x0 = (self.width - block_width) // 2 - plate_pad_x
+            plate_x1 = (self.width + block_width) // 2 + plate_pad_x
+            plate_y0 = name_top - plate_pad_y
+            plate_y1 = name_top + block_height + plate_pad_y
+
+            draw.rounded_rectangle((plate_x0, plate_y0, plate_x1, plate_y1), radius=28, fill=(12, 12, 18))
+            draw.rounded_rectangle((plate_x0, plate_y0, plate_x1, plate_y1), radius=28, outline=self.shadowcolor_cards, width=4)
+
+            for i, line in enumerate(lines):
+                line_y = name_top + (i * line_spacing)
+                self.create_text_border(draw, (self.width - line_widths[i]) // 2, line_y, self.font_type_cards, line, self.fillcolor, self.shadowcolor_cards)
+
+            # Add market price as a badge that sits just above the card, below the name plate
             price = card.get('marketPrice') or card.get('midPrice')
-            price_text = f"Market Price: ${float(price):.2f}"
-            price_width = draw.textlength(price_text, font=self.font_type_cards)
-            
-            self.create_text_border(draw, (self.width - price_width) // 2,  self.height - 300, self.font_type_cards, price_text, self.fillcolor, self.shadowcolor_cards)
+            price_text = f"${float(price):.2f}"
+            price_bbox = draw.textbbox((0, 0), price_text, font=self.font_type_price)
+            price_text_width = price_bbox[2] - price_bbox[0]
+            price_text_height = price_bbox[3] - price_bbox[1]
+
+            badge_pad_x, badge_pad_y = 28, 16
+            badge_width = price_text_width + badge_pad_x * 2
+            badge_height = price_text_height + badge_pad_y * 2
+            badge_gap = 24
+
+            badge_margin_right = 40
+            badge_x1 = x_offset + card_width - badge_margin_right
+            badge_x0 = badge_x1 - badge_width
+            badge_y0 = plate_y1 + badge_gap
+            badge_y1 = badge_y0 + badge_height
+
+            # Keep the badge from dipping onto the card art if the name wrapped to extra
+            # lines, but never push it back up into the name plate to do so
+            max_badge_y1 = y_offset - 16
+            if badge_y1 > max_badge_y1 and max_badge_y1 - badge_height >= plate_y1 + badge_gap:
+                badge_y1 = max_badge_y1
+                badge_y0 = badge_y1 - badge_height
+
+            draw.rounded_rectangle((badge_x0, badge_y0, badge_x1, badge_y1), radius=18, fill=(255, 205, 30))
+            draw.rounded_rectangle((badge_x0, badge_y0, badge_x1, badge_y1), radius=18, outline='black', width=4)
+
+            price_x = badge_x0 + badge_pad_x - price_bbox[0]
+            price_y = badge_y0 + badge_pad_y - price_bbox[1]
+            draw.text((price_x, price_y), price_text, font=self.font_type_price, fill='black')
             
             # Save the final image > remove backslashes otherwise incomplete paths. 
             output_path = os.path.join(self.BASE_DIR, 'temp', 'images', f"{name.replace('/', '-')}_PRICE_CARD.png")
@@ -616,70 +716,81 @@ class VideoCreation:
         """
        
         clips = []
-        
-        header_clip = ImageClip(self.header_image_path).with_duration(self.clip_duration)
-        # header_clip = CrossFadeIn(fade_duration).apply(header_clip)
+
+        # Spread any slack time across the cards instead of padding the ending clip
+        card_clip_duration = self.compute_card_clip_duration(len(processed_images))
+
+        # Hook clip: teases the #1 card's price before the countdown starts
+        hook_clip = ImageClip(self.hook_image_path).with_duration(self.hook_duration)
+        hook_clip = CrossFadeOut(self.fade_duration).apply(hook_clip)
+
+        clips.append(hook_clip.with_start(0))
+
+        current_time = self.hook_duration - self.fade_duration
+
+        header_clip = ImageClip(self.header_image_path).with_duration(self.header_duration)
+        header_clip = CrossFadeIn(self.fade_duration).apply(header_clip)
         header_clip = CrossFadeOut(self.fade_duration).apply(header_clip)
-        
-        clips.append(header_clip.with_start(0))
-        
-        current_time = self.clip_duration - self.fade_duration 
-        for img_path in processed_images:
-            
+
+        clips.append(header_clip.with_start(current_time))
+
+        current_time += self.header_duration - self.fade_duration
+        for i, img_path in enumerate(processed_images):
+
             # Create base clip with full duration
-            clip = ImageClip(img_path).with_duration(self.clip_duration)
-            
+            clip = ImageClip(img_path).with_duration(card_clip_duration)
+
+            # Subtle Ken Burns zoom, alternating direction per card
+            clip = self.apply_ken_burns(clip, zoom_in=(i % 2 == 0))
+
             # Apply transitions conditionally
             clip = CrossFadeIn(self.fade_duration).apply(clip)
             clip = CrossFadeOut(self.fade_duration).apply(clip)
-            
+
             # Position clip in composition
             clip = clip.with_start(current_time)
             clips.append(clip)
-            
-            current_time +=  (self.clip_duration - self.fade_duration)
+
+            current_time +=  (card_clip_duration - self.fade_duration)
 
         # Get the songname
         song_path, audio = self.get_music()
-        
+
         song_name, _ = os.path.splitext(os.path.basename(song_path))
-        
+
         # Get the ending Image
         self.create_ending_image(song_name)
-        
-        # Calculate middle section
-        middle_section_duration = 0
-        if processed_images:
-            middle_section_duration = len(processed_images)*(self.clip_duration-self.fade_duration)
-            
-        total_duration = middle_section_duration + self.clip_duration
-        
-        if total_duration < 60:
-            ending_clip_duration = 60-total_duration
+
+        # The last non-ending clip keeps fading out for fade_duration past its start time
+        total_duration = current_time + self.fade_duration
+
+        if total_duration < self.target_video_duration:
+            ending_clip_duration = self.target_video_duration - total_duration
             ending_clip = ImageClip(self.ending_image_path).with_duration(ending_clip_duration)
             ending_clip = CrossFadeIn(self.fade_duration).apply(ending_clip)
-            total_duration = 60
+            total_duration = self.target_video_duration
         else:
-            ending_clip_duration = self.clip_duration
+            ending_clip_duration = self.ending_duration
             ending_clip = ImageClip(self.ending_image_path).with_duration(ending_clip_duration)
             ending_clip = CrossFadeIn(self.fade_duration).apply(ending_clip)
             total_duration += ending_clip_duration
-            
+
         clips.append(ending_clip.with_start(current_time))
-        
+
         # Create final composite with overlapping clips
         final_video = CompositeVideoClip(clips)
 
         final_video = final_video.with_duration(total_duration)
-        
+
         audio_path = self.get_audio(total_duration, audio, song_name)
-        
+
         final_video = final_video.with_audio(AudioFileClip(audio_path).subclipped(0, total_duration))
-        
+
         # Write the final video
-        output_video = os.path.join(self.BASE_DIR, 'video', f"TOP_10_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}_{datetime.strftime(datetime.now(), '%m%d%Y%H%M')}.mp4")
+        card_count = len(processed_images)
+        output_video = os.path.join(self.BASE_DIR, 'video', f"TOP_{card_count}_EXPENSIVE_CARDS_{set_name.replace(' ', '_')}_{datetime.strftime(datetime.now(), '%m%d%Y%H%M')}.mp4")
         final_video.write_videofile(output_video, fps=24)
-        return output_video, song_name
+        return output_video, song_name, card_count
     
     def get_music(self):
         
@@ -773,15 +884,16 @@ class VideoCreation:
         self.background_image = self.get_background_image()
 
         self.create_header_image(self.expansion_image_path)
-        
+        self.create_hook_image(self.cards_dict)
+
         # Process cards and get image paths
         processed_images = self.process_cards(self.cards_dict)
-        
-        output_video, song_name = self.create_composite_clip(processed_images, self.expansion)
-        
+
+        output_video, song_name, card_count = self.create_composite_clip(processed_images, self.expansion)
+
         self.clean_temp_folder()
-        
-        return output_video, self.expansion_full_name, song_name
+
+        return output_video, self.expansion_full_name, song_name, card_count
         
     def __close__(self):
         """

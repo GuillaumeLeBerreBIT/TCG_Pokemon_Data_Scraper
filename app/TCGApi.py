@@ -64,7 +64,7 @@ class TCGApi:
                 raise e
             
         try:
-            querystring = {"page":"1","per_page":"20","sort":"price_highest"}
+            querystring = {"page":"1","per_page":"30","sort":"price_highest"}
 
             response = requests.get(self.base_url + f"episodes/{self.expansion.get('id')}/cards", 
                                 headers=self.headers,
@@ -91,10 +91,10 @@ class TCGApi:
                     'imgPath': image_path
                 }
                 
-                if len(list(cards_dict.items())) >= 15:
+                if len(list(cards_dict.items())) >= 20:
                     break
-                    
-            return dict(sorted(cards_dict.items(), key=lambda item: float(item[1]['marketPrice'] or 0))[:15])    
+
+            return dict(sorted(cards_dict.items(), key=lambda item: float(item[1]['marketPrice'] or 0))[:20])
             
         except Exception as e:
             
