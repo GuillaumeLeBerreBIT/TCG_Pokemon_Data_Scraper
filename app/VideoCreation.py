@@ -7,7 +7,7 @@ import shutil
 import random
 from thefuzz import process
 from moviepy import ImageClip
-from moviepy.video.fx import CrossFadeIn, CrossFadeOut, Resize
+from moviepy.video.fx import CrossFadeIn, CrossFadeOut
 from moviepy.video.compositing import CompositeVideoClip
 from moviepy import *
 from datetime import datetime
@@ -430,7 +430,31 @@ class VideoCreation:
         self.create_text_border(draw, (self.width - top_width) // 2, y_offset - 220, self.font_type_cards, top_text, self.fillcolor, self.shadowcolor_headers)
 
         price_width = draw.textlength(price_text, font=self.font_type_large)
-        self.create_text_border(draw, (self.width - price_width) // 2, y_offset + card_height + 40, self.font_type_large, price_text, self.fillcolor, self.shadowcolor_headers)
+        price_x = int((self.width - price_width) // 2)
+        price_y = y_offset + card_height + 40
+
+        price_bbox = self.font_type_large.getbbox('Ay$0.9!?')
+        price_height = price_bbox[3] - price_bbox[1]
+
+        # Solid plate behind the price so it stays clearly visible after the glitch
+        plate_pad_x, plate_pad_y = 40, 24
+        glitch_box = (
+            int(max(price_x - plate_pad_x, 0)),
+            int(max(price_y - plate_pad_y, 0)),
+            int(min(price_x + int(price_width) + plate_pad_x, self.width)),
+            int(min(price_y + price_height + plate_pad_y, self.height)),
+        )
+        draw.rounded_rectangle(glitch_box, radius=24, fill=(12, 12, 18))
+        self.create_text_border(draw, price_x, price_y, self.font_type_large, price_text, self.fillcolor, self.shadowcolor_headers)
+
+        # Glitch out the exact amount: pixelate the price into blocks so viewers see
+        # a price is there but can't read it. The countdown reveals it later.
+        region = bck_img.crop(glitch_box)
+        block = 40
+        small = (max(1, region.width // block), max(1, region.height // block))
+        region = region.resize(small, Image.BILINEAR).resize(region.size, Image.NEAREST)
+        region = region.filter(ImageFilter.GaussianBlur(radius=3))
+        bck_img.paste(region, glitch_box)
 
         self.hook_image_path = self.hook_image_path.format(top_name.replace('/', '-').replace(' ', '_'))
         bck_img = bck_img.convert('RGB')
@@ -451,19 +475,26 @@ class VideoCreation:
 
         return max(self.min_card_duration, min(self.max_card_duration, duration))
 
-    def apply_ken_burns(self, clip, zoom_in=True):
+    def apply_circle_reveal(self, clip, dist_from_center, max_radius):
         """
-        Apply a subtle Ken Burns zoom effect to a clip, keeping it centered on the frame.
+        Reveal the clip through a circle that expands from the centre of the frame over
+        fade_duration, so the next card appears to "open up" on top of the previous one.
+
+        Args:
+            clip: the incoming card clip
+            dist_from_center: precomputed HxW array of each pixel's distance to the centre
+            max_radius: radius (px) at which the circle fully covers the frame
         """
-        duration = clip.duration
-        start_scale, end_scale = (1.0, 1.04) if zoom_in else (1.04, 1.0)
+        reveal = self.fade_duration
+        feather = 6.0  # soft anti-aliased edge on the circle
 
-        def scale_at(t):
-            progress = min(t / duration, 1) if duration else 0
-            return start_scale + (end_scale - start_scale) * progress
+        def mask_frame(t):
+            progress = min(t / reveal, 1.0) if reveal else 1.0
+            r = progress * max_radius
+            return np.clip((r - dist_from_center) / feather + 0.5, 0.0, 1.0)
 
-        zoomed_clip = Resize(scale_at).apply(clip)
-        return zoomed_clip.with_position(("center", "center"))
+        mask_clip = VideoClip(mask_frame, is_mask=True, duration=clip.duration)
+        return clip.with_mask(mask_clip)
 
     def enhance_card_image_traditional(self, image, card_width, card_height, quality='balanced'):
         
@@ -730,9 +761,15 @@ class VideoCreation:
 
         header_clip = ImageClip(self.header_image_path).with_duration(self.header_duration)
         header_clip = CrossFadeIn(self.fade_duration).apply(header_clip)
-        header_clip = CrossFadeOut(self.fade_duration).apply(header_clip)
+        # No fade-out: the first card's circle reveal opens up on top of the header
 
         clips.append(header_clip.with_start(current_time))
+
+        # Precompute each pixel's distance to the frame centre once; only the radius
+        # changes over time in the circle-reveal mask
+        Y, X = np.ogrid[:self.height, :self.width]
+        dist_from_center = np.sqrt((X - self.width / 2) ** 2 + (Y - self.height / 2) ** 2)
+        max_radius = float(np.sqrt((self.width / 2) ** 2 + (self.height / 2) ** 2)) + 6.0
 
         current_time += self.header_duration - self.fade_duration
         for i, img_path in enumerate(processed_images):
@@ -740,12 +777,8 @@ class VideoCreation:
             # Create base clip with full duration
             clip = ImageClip(img_path).with_duration(card_clip_duration)
 
-            # Subtle Ken Burns zoom, alternating direction per card
-            clip = self.apply_ken_burns(clip, zoom_in=(i % 2 == 0))
-
-            # Apply transitions conditionally
-            clip = CrossFadeIn(self.fade_duration).apply(clip)
-            clip = CrossFadeOut(self.fade_duration).apply(clip)
+            # Reveal each card through an expanding circle over the previous one
+            clip = self.apply_circle_reveal(clip, dist_from_center, max_radius)
 
             # Position clip in composition
             clip = clip.with_start(current_time)
