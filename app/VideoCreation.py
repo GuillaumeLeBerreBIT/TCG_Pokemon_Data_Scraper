@@ -64,6 +64,10 @@ class VideoCreation:
         self.width = 1080
         self.height = 1980
 
+        # YouTube overlays the bottom of a Short with the title, channel and description.
+        # Nothing we want read should be drawn below this line.
+        self.shorts_safe_bottom = self.height - 250
+
         self.background_image = None
         self.header_image_path = os.path.join(self.BASE_DIR, 'temp', 'images', '{}_EXPANSION_IMAGE.jpg')
         self.ending_image_path = os.path.join(self.BASE_DIR, 'temp', 'images', '{}_{}_ENDING.jpg')
@@ -74,10 +78,18 @@ class VideoCreation:
             self.font_type_large = ImageFont.truetype(os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), 150)
             self.font_type_cards = ImageFont.truetype(os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), 120)
             self.font_type_price = ImageFont.truetype(os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), 90)
+            self.font_type_psa = ImageFont.truetype(os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), 64)
         except IOError:
             self.font_type_large = ImageFont.load_default(size=150)
             self.font_type_cards = ImageFont.load_default(size=120)
             self.font_type_price = ImageFont.load_default(size=90)
+            self.font_type_psa = ImageFont.load_default(size=64)
+
+        # Card names are auto-fitted between these sizes so the name plate and price badge
+        # always clear the card art; see fit_name_block.
+        self.NAME_FONT_MAX = 120
+        self.NAME_FONT_MIN = 64
+        self._name_font_cache = {}
         
         self.fillcolor = (255, 255, 255)
         self.shadowcolor_headers = 'black'
@@ -632,78 +644,85 @@ class VideoCreation:
             draw = ImageDraw.Draw(final_img)
             
             display_name = f'#{card_count} {name}'
+            card_bottom = y_offset + card_height
 
-            line_height = self.font_type_cards.getbbox('Ay')[3]
-            line_spacing = int(line_height * 1.3)
-            name_top = 50
+            # Name plate and price badge form one stack that hangs off the top of the card
+            # rather than off the top of the frame. The stack is anchored by its bottom edge,
+            # so a short one-line name sits just as close to the card as a wrapped two-line
+            # one; extra lines grow upward into the empty space instead of pushing down onto
+            # the art. The name font shrinks only as far as it must for the stack to fit.
+            plate_pad_x, plate_pad_y = 50, 26
+            stack_margin = 20      # plate/badge -> card
+            stack_gap = 20         # plate -> badge
+
+            price = card.get('marketPrice') or card.get('midPrice')
+            price_text = f"${float(price):.2f}"
+            price_bbox = draw.textbbox((0, 0), price_text, font=self.font_type_price)
+            badge_pad_x, badge_pad_y = 28, 16
+            badge_width = (price_bbox[2] - price_bbox[0]) + badge_pad_x * 2
+            badge_height = (price_bbox[3] - price_bbox[1]) + badge_pad_y * 2
+
+            plate_budget = y_offset - stack_margin - badge_height - stack_gap
             max_text_width = self.width - 100
 
-            # Wrap the rank + name into lines that fit within the frame
-            words = display_name.split(' ')
-            lines = []
-            current_line = []
-            for word in words:
-                test_line = ' '.join(current_line + [word])
-                test_width = draw.textlength(test_line, font=self.font_type_cards)
+            font_name, lines, line_height, block_height = self.fit_name_block(
+                draw, display_name, max_text_width, plate_budget - plate_pad_y * 2)
+            line_spacing = int(line_height * 1.3)
 
-                if test_width <= max_text_width or not current_line:
-                    current_line.append(word)
-                else:
-                    lines.append(' '.join(current_line))
-                    current_line = [word]
-            if current_line:
-                lines.append(' '.join(current_line))
-
-            line_widths = [draw.textlength(line, font=self.font_type_cards) for line in lines]
+            line_widths = [draw.textlength(line, font=font_name) for line in lines]
             block_width = max(line_widths)
-            block_height = line_spacing * (len(lines) - 1) + line_height
+
+            # Badge sits directly above the card, name plate directly above the badge
+            badge_y1 = y_offset - stack_margin
+            badge_y0 = badge_y1 - badge_height
+            plate_y1 = badge_y0 - stack_gap
+            plate_y0 = plate_y1 - (block_height + plate_pad_y * 2)
+            name_top = plate_y0 + plate_pad_y
 
             # Clean dark name plate behind the rank + card name for legibility
-            plate_pad_x, plate_pad_y = 50, 26
             plate_x0 = (self.width - block_width) // 2 - plate_pad_x
             plate_x1 = (self.width + block_width) // 2 + plate_pad_x
-            plate_y0 = name_top - plate_pad_y
-            plate_y1 = name_top + block_height + plate_pad_y
 
             draw.rounded_rectangle((plate_x0, plate_y0, plate_x1, plate_y1), radius=28, fill=(12, 12, 18))
             draw.rounded_rectangle((plate_x0, plate_y0, plate_x1, plate_y1), radius=28, outline=self.shadowcolor_cards, width=4)
 
-            for i, line in enumerate(lines):
-                line_y = name_top + (i * line_spacing)
-                self.create_text_border(draw, (self.width - line_widths[i]) // 2, line_y, self.font_type_cards, line, self.fillcolor, self.shadowcolor_cards)
+            for line_index, line in enumerate(lines):
+                line_y = name_top + (line_index * line_spacing)
+                self.create_text_border(draw, (self.width - line_widths[line_index]) // 2, line_y, font_name, line, self.fillcolor, self.shadowcolor_cards)
 
-            # Add market price as a badge that sits just above the card, below the name plate
-            price = card.get('marketPrice') or card.get('midPrice')
-            price_text = f"${float(price):.2f}"
-            price_bbox = draw.textbbox((0, 0), price_text, font=self.font_type_price)
-            price_text_width = price_bbox[2] - price_bbox[0]
-            price_text_height = price_bbox[3] - price_bbox[1]
-
-            badge_pad_x, badge_pad_y = 28, 16
-            badge_width = price_text_width + badge_pad_x * 2
-            badge_height = price_text_height + badge_pad_y * 2
-            badge_gap = 24
-
-            badge_margin_right = 40
-            badge_x1 = x_offset + card_width - badge_margin_right
+            # Market price badge, right-aligned against the card as it originally was
+            badge_x1 = x_offset + card_width - 40
             badge_x0 = badge_x1 - badge_width
-            badge_y0 = plate_y1 + badge_gap
-            badge_y1 = badge_y0 + badge_height
-
-            # Keep the badge from dipping onto the card art if the name wrapped to extra
-            # lines, but never push it back up into the name plate to do so
-            max_badge_y1 = y_offset - 16
-            if badge_y1 > max_badge_y1 and max_badge_y1 - badge_height >= plate_y1 + badge_gap:
-                badge_y1 = max_badge_y1
-                badge_y0 = badge_y1 - badge_height
 
             draw.rounded_rectangle((badge_x0, badge_y0, badge_x1, badge_y1), radius=18, fill=(255, 205, 30))
             draw.rounded_rectangle((badge_x0, badge_y0, badge_x1, badge_y1), radius=18, outline='black', width=4)
+            draw.text((badge_x0 + badge_pad_x - price_bbox[0], badge_y0 + badge_pad_y - price_bbox[1]),
+                      price_text, font=self.font_type_price, fill='black')
 
-            price_x = badge_x0 + badge_pad_x - price_bbox[0]
-            price_y = badge_y0 + badge_pad_y - price_bbox[1]
-            draw.text((price_x, price_y), price_text, font=self.font_type_price, fill='black')
-            
+            # PSA 10: a slab-style tag clipped to the card's bottom-right corner, sitting
+            # mostly on the card so it reads as attached to it. Skipped entirely when the
+            # API had too few graded sales to give a trustworthy median.
+            psa10 = card.get('psa10Price')
+            if psa10:
+                psa_text = f"PSA 10 ${float(psa10):.2f}"
+                psa_bbox = draw.textbbox((0, 0), psa_text, font=self.font_type_psa)
+                psa_pad_x, psa_pad_y = 22, 12
+                psa_width = (psa_bbox[2] - psa_bbox[0]) + psa_pad_x * 2
+                psa_height = (psa_bbox[3] - psa_bbox[1]) + psa_pad_y * 2
+
+                # Right-aligned against the card, inset enough to clear the Shorts action
+                # rail that overlays roughly the rightmost 140px of the frame.
+                psa_x1 = x_offset + card_width - 36
+                psa_x0 = psa_x1 - psa_width
+                psa_center_y = card_bottom - 24
+                psa_y0 = psa_center_y - psa_height // 2
+                psa_y1 = psa_y0 + psa_height
+
+                draw.rounded_rectangle((psa_x0, psa_y0, psa_x1, psa_y1), radius=14, fill=(18, 18, 24))
+                draw.rounded_rectangle((psa_x0, psa_y0, psa_x1, psa_y1), radius=14, outline=(212, 216, 226), width=4)
+                draw.text((psa_x0 + psa_pad_x - psa_bbox[0], psa_y0 + psa_pad_y - psa_bbox[1]),
+                          psa_text, font=self.font_type_psa, fill=(255, 255, 255))
+
             # Save the final image > remove backslashes otherwise incomplete paths. 
             output_path = os.path.join(self.BASE_DIR, 'temp', 'images', f"{name.replace('/', '-')}_PRICE_CARD.png")
             final_img = final_img.convert('RGB')
@@ -712,6 +731,65 @@ class VideoCreation:
         
         return processed_images
     
+    def name_font(self, size):
+        """Cached name font at a given point size."""
+
+        if size not in self._name_font_cache:
+            try:
+                self._name_font_cache[size] = ImageFont.truetype(
+                    os.path.join(self.BASE_DIR, 'font', 'Bangers-Regular.ttf'), size)
+            except IOError:
+                self._name_font_cache[size] = ImageFont.load_default(size=size)
+
+        return self._name_font_cache[size]
+
+    def wrap_text(self, draw, text, font, max_width):
+        """Greedy word wrap of text at font, never exceeding max_width where possible."""
+
+        lines = []
+        current_line = []
+
+        for word in text.split(' '):
+            test_line = ' '.join(current_line + [word])
+
+            if draw.textlength(test_line, font=font) <= max_width or not current_line:
+                current_line.append(word)
+            else:
+                lines.append(' '.join(current_line))
+                current_line = [word]
+
+        if current_line:
+            lines.append(' '.join(current_line))
+
+        return lines
+
+    def fit_name_block(self, draw, text, max_width, max_height):
+        """
+        Largest name font whose wrapped block fits inside max_height.
+
+        Card names vary from "Dawn 168" to "Lillie's Determination 169", so a fixed size
+        either overflows on the long ones or wastes the frame on the short ones. Stepping
+        the size down also lets a name collapse back onto a single line.
+
+        Returns (font, lines, line_height, block_height).
+        """
+
+        chosen = None
+
+        for size in range(self.NAME_FONT_MAX, self.NAME_FONT_MIN - 1, -4):
+            font = self.name_font(size)
+            lines = self.wrap_text(draw, text, font, max_width)
+            line_height = font.getbbox('Ay')[3]
+            block_height = int(line_height * 1.3) * (len(lines) - 1) + line_height
+
+            chosen = (font, lines, line_height, block_height)
+
+            if block_height <= max_height:
+                return chosen
+
+        # Nothing fit; the smallest size is still the least bad option
+        return chosen
+
     def create_text_border(self, draw, x, y, font, text, text_color, shadow_color):
         """
         Generate a border around the text displayed on the image.

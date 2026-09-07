@@ -21,7 +21,72 @@ class TCGApi:
         self.path_state = os.path.join(self.BASE_DIR, 'db', 'state.json')
         self.state = self.read_state(path=self.path_state)
         self.expansion_images_dir = os.path.join(self.BASE_DIR, 'images')
-        
+        self.path_fx = os.path.join(self.BASE_DIR, 'db', 'fx_rate.json')
+        self.eur_usd = self.get_eur_usd_rate()
+
+    # The upstream API reports tcg_player.market_price in EUR (prices.tcg_player.currency
+    # is literally "EUR"), even though TCGPlayer itself quotes USD. Verified against
+    # pokemontcg.io's native TCGPlayer feed over 60 cards: median ratio 1.1695 vs the
+    # ECB EUR/USD rate of 1.1699. Without this conversion every price we render is ~14%
+    # below what a viewer sees on TCGPlayer or Collectr.
+    FX_FALLBACK = 1.17
+
+    def get_eur_usd_rate(self):
+        """Return EUR->USD, from a once-per-day cached ECB rate."""
+
+        today = datetime.now().strftime('%d-%m-%Y')
+
+        try:
+            with open(self.path_fx, 'r') as f:
+                cached = json.load(f)
+            if cached.get('date') == today and cached.get('rate'):
+                return float(cached['rate'])
+        except (FileNotFoundError, ValueError, KeyError):
+            pass
+
+        try:
+            response = requests.get('https://api.frankfurter.dev/v1/latest',
+                                    params={'base': 'EUR', 'symbols': 'USD'},
+                                    timeout=10)
+            response.raise_for_status()
+            rate = float(response.json()['rates']['USD'])
+
+            with open(self.path_fx, 'w') as f:
+                json.dump({'date': today, 'rate': rate}, f, indent=4)
+
+            return rate
+
+        except Exception as e:
+            print(f'Could not fetch EUR/USD rate ({e}); falling back to {self.FX_FALLBACK}')
+            return self.FX_FALLBACK
+
+    def to_usd(self, amount_eur):
+        """Convert an EUR figure from the API into the USD we display."""
+
+        try:
+            return round(float(amount_eur) * self.eur_usd, 2)
+        except (TypeError, ValueError):
+            return None
+
+    # eBay medians are already USD (prices.ebay.currency == "USD"), so unlike the
+    # Cardmarket figures these need no conversion. Coverage is uneven on freshly
+    # released sets, where a "median" can rest on a single sale.
+    PSA10_MIN_SAMPLES = 5
+
+    def get_psa10_price(self, card):
+        """PSA 10 median sold price in USD, or None when the sample is too thin to trust."""
+
+        entry = (((card.get('prices', {}).get('ebay') or {}).get('graded') or {})
+                 .get('psa') or {}).get('10') or {}
+
+        if (entry.get('sample_size') or 0) < self.PSA10_MIN_SAMPLES:
+            return None
+
+        try:
+            return round(float(entry['median_price']), 2)
+        except (TypeError, ValueError, KeyError):
+            return None
+
     def read_state(self, path):
         
         try:
@@ -63,41 +128,62 @@ class TCGApi:
             except Exception as e:
                 raise e
             
+        # The API's sort=price_highest ranks by Cardmarket's lowest_near_mint, not by the
+        # TCGPlayer market price we actually display, so the two orderings disagree. Pull a
+        # wider candidate pool than we need and re-rank on our own price below.
+        cards_list = []
         try:
-            querystring = {"page":"1","per_page":"30","sort":"price_highest"}
+            for page in (1, 2):
+                response = requests.get(self.base_url + f"episodes/{self.expansion.get('id')}/cards",
+                                    headers=self.headers,
+                                    params={"page": str(page), "per_page": "30", "sort": "price_highest"})
 
-            response = requests.get(self.base_url + f"episodes/{self.expansion.get('id')}/cards", 
-                                headers=self.headers,
-                                params=querystring)
-            
-            if response.status_code == 200:
-                
-                cards_list = response.json().get('data', [])
-                
-            
-        except requests.exceptions.RequestException as e:
-            print('Problem retrieving all expansions list for pokemon cards: ', e)
-            
-        try:
-            
-            cards_dict = {}
-            for card in cards_list:
-                print(card)
-                
-                image_path = download_image(card.get('image').replace('\\/', '/'), card.get('name_numbered').replace(' ', '_'))
-                cards_dict[card.get('name_numbered')] = {
-                    'imageUrl': card.get('image').replace('\\/', '/'),
-                    'marketPrice': card.get('prices', {}).get('tcg_player', {}).get('market_price', '') or card.get('prices', {}).get('cardmarket', {}).get('lowest_near_mint', ''),
-                    'imgPath': image_path
-                }
-                
-                if len(list(cards_dict.items())) >= 20:
+                if response.status_code != 200:
                     break
 
-            return dict(sorted(cards_dict.items(), key=lambda item: float(item[1]['marketPrice'] or 0))[:20])
-            
+                page_cards = response.json().get('data', [])
+
+                if not page_cards:
+                    break
+
+                cards_list += page_cards
+
+        except requests.exceptions.RequestException as e:
+            print('Problem retrieving all expansions list for pokemon cards: ', e)
+
+        try:
+            # Price and rank first, download images only for the cards that make the cut.
+            priced = []
+            for card in cards_list:
+                price_usd = self.to_usd(card.get('prices', {}).get('tcg_player', {}).get('market_price'))
+
+                # No fallback to Cardmarket's lowest_near_mint here: that is the cheapest
+                # standing listing in EUR, a different metric from a market price. Mixing
+                # the two silently prints a wrong number under a "$" sign.
+                if not price_usd:
+                    continue
+
+                priced.append((card, price_usd))
+
+            top_cards = sorted(priced, key=lambda item: item[1], reverse=True)[:20]
+
+            # Ascending so the video counts down to the most expensive card last.
+            cards_dict = {}
+            for card, price_usd in sorted(top_cards, key=lambda item: item[1]):
+                image_url = card.get('image').replace('\\/', '/')
+                image_path = download_image(image_url, card.get('name_numbered').replace(' ', '_'))
+
+                cards_dict[card.get('name_numbered')] = {
+                    'imageUrl': image_url,
+                    'marketPrice': price_usd,
+                    'psa10Price': self.get_psa10_price(card),
+                    'imgPath': image_path
+                }
+
+            return cards_dict
+
         except Exception as e:
-            
+
             return {}
             
             
