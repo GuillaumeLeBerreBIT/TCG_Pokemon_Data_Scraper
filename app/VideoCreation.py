@@ -353,15 +353,22 @@ class VideoCreation:
         date_string = current_date.strftime("%B %Y")
         
         # Create the header text
-        header_text = f"Prices {date_string}"
-        
-        # Calculate text position (centered horizontally, near top vertically)
-        text_width = draw.textlength(header_text, font=self.font_type_large)
+        header_text = f"Prices\n{date_string}"
+
+        # Measure the whole multiline block (textlength() can't handle "\n")
+        text_bbox = draw.multiline_textbbox((0, 0), header_text,
+                                            font=self.font_type_large,
+                                            align="center", spacing=20)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+
+        # Centered horizontally; sit the block just above the logo with a 60px gap,
+        # so it clears the centered expansion logo whether the title is one line or two.
         x = (self.width - text_width) // 2
-        y = 500  # Top margin
-        
+        y = max(40, min(y_offset - 60 - text_height, 200))
+
         # Add text with border effect to the final image
-        self.create_text_border(draw, x, y, self.font_type_large, header_text, self.fillcolor, self.shadowcolor_headers)
+        self.create_text_border(draw, x, y, self.font_type_large, header_text, self.fillcolor, self.shadowcolor_headers, align="center")
         
         #Expansion path
         name, _ = os.path.splitext(os.path.basename(expansion_path))
@@ -790,7 +797,7 @@ class VideoCreation:
         # Nothing fit; the smallest size is still the least bad option
         return chosen
 
-    def create_text_border(self, draw, x, y, font, text, text_color, shadow_color):
+    def create_text_border(self, draw, x, y, font, text, text_color, shadow_color, align="left"):
         """
         Generate a border around the text displayed on the image.
 
@@ -802,19 +809,20 @@ class VideoCreation:
             text (_type_): _description_
             text_color (_type_): _description_
             shadow_color (_type_): _description_
+            align (str): horizontal alignment for multiline text ("left"/"center"/"right").
         """
         # Draw border (8 surrounding positions) > Stretch the text out on all sides to create a border.
-        draw.text((x - 4, y), text, font=font, fill=shadow_color)  # Left
-        draw.text((x + 4, y), text, font=font, fill=shadow_color)  # Right
-        draw.text((x, y - 4), text, font=font, fill=shadow_color)  # Up
-        draw.text((x, y + 4), text, font=font, fill=shadow_color)  # Down
-        draw.text((x - 4, y - 4), text, font=font, fill=shadow_color)  # Top-left
-        draw.text((x + 4, y - 4), text, font=font, fill=shadow_color)  # Top-right
-        draw.text((x - 4, y + 4), text, font=font, fill=shadow_color)  # Bottom-left
-        draw.text((x + 4, y + 4), text, font=font, fill=shadow_color)  # Bottom-right
+        draw.text((x - 4, y), text, font=font, fill=shadow_color, align=align)  # Left
+        draw.text((x + 4, y), text, font=font, fill=shadow_color, align=align)  # Right
+        draw.text((x, y - 4), text, font=font, fill=shadow_color, align=align)  # Up
+        draw.text((x, y + 4), text, font=font, fill=shadow_color, align=align)  # Down
+        draw.text((x - 4, y - 4), text, font=font, fill=shadow_color, align=align)  # Top-left
+        draw.text((x + 4, y - 4), text, font=font, fill=shadow_color, align=align)  # Top-right
+        draw.text((x - 4, y + 4), text, font=font, fill=shadow_color, align=align)  # Bottom-left
+        draw.text((x + 4, y + 4), text, font=font, fill=shadow_color, align=align)  # Bottom-right
 
         # Draw main text on top
-        draw.text((x, y), text, font=font, fill=text_color)
+        draw.text((x, y), text, font=font, fill=text_color, align=align)
         
     def create_composite_clip(self, processed_images, set_name):
         """
