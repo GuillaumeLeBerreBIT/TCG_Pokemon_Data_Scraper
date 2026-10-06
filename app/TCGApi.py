@@ -83,11 +83,15 @@ class TCGApi:
             cards_dict = {}
             for card in cards_list:
                 print(card)
+                tcg_price = card.get('prices', {}).get('tcg_player', {}).get('market_price')
+                cm_price = card.get('prices', {}).get('cardmarket', {}).get('lowest_near_mint')
+
+                price = tcg_price if tcg_price not in (None, '') else (cm_price if cm_price not in (None, '') else 0)
                 
                 image_path = download_image(card.get('image').replace('\\/', '/'), card.get('name_numbered').replace(' ', '_'))
                 cards_dict[card.get('name_numbered')] = {
                     'imageUrl': card.get('image').replace('\\/', '/'),
-                    'marketPrice': card.get('prices', {}).get('tcg_player', {}).get('market_price', '') or card.get('prices', {}).get('cardmarket', {}).get('lowest_near_mint', ''),
+                    'marketPrice': price,
                     'imgPath': image_path
                 }
                 
