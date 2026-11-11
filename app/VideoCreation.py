@@ -1,3 +1,5 @@
+from app.pricing import format_card_price
+
 import sqlite3
 import requests
 from io import BytesIO
@@ -403,7 +405,6 @@ class VideoCreation:
         Create the opening hook image teasing the #1 most expensive card's price.
         """
         top_name, top_card = list(cards_dict.items())[-1]
-        price = top_card.get('marketPrice') or top_card.get('midPrice')
 
         bck_img = Image.open(self.background_image).filter(ImageFilter.GaussianBlur(radius=10))
         bck_img = bck_img.resize((self.width, self.height), Image.LANCZOS)
@@ -423,8 +424,10 @@ class VideoCreation:
 
         draw = ImageDraw.Draw(bck_img)
 
-        top_text = "This card is worth"
-        price_text = f"${float(price):.2f}!?"
+        price_text = format_card_price(top_card)
+        top_text = "This card is worth" if price_text != 'Price unavailable' else "Discover this card"
+        if price_text != 'Price unavailable':
+            price_text += "!?"
 
         top_width = draw.textlength(top_text, font=self.font_type_cards)
         self.create_text_border(draw, (self.width - top_width) // 2, y_offset - 220, self.font_type_cards, top_text, self.fillcolor, self.shadowcolor_headers)
@@ -673,8 +676,7 @@ class VideoCreation:
                 self.create_text_border(draw, (self.width - line_widths[i]) // 2, line_y, self.font_type_cards, line, self.fillcolor, self.shadowcolor_cards)
 
             # Add market price as a badge that sits just above the card, below the name plate
-            price = card.get('marketPrice') or card.get('midPrice')
-            price_text = f"${float(price):.2f}"
+            price_text = format_card_price(card)
             price_bbox = draw.textbbox((0, 0), price_text, font=self.font_type_price)
             price_text_width = price_bbox[2] - price_bbox[0]
             price_text_height = price_bbox[3] - price_bbox[1]

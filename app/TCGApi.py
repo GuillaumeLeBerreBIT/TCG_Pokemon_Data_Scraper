@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 import json
 import os 
+from app.pricing import positive_price
 
 class TCGApi:
     
@@ -44,67 +45,48 @@ class TCGApi:
             raise e        
         
     def retrieve_cards_list(self):
-        """Retrieve all cards from the expansion"""
-        
-        def download_image(url, name):
-            
-            try:
-                response = requests.get(url, headers=self.headers)
-                
-                if response.status_code == 200:
-                    
-                    card_image_path = f"{self.expansion_images_dir}/{name}.png"
-                    
-                    with open(card_image_path, 'wb') as f:
-                        f.write(response.content)
-                    
-                    return card_image_path
-                
-            except Exception as e:
-                raise e
-            
-        try:
-            querystring = {"page":"1","per_page":"30","sort":"price_highest"}
+        """Retrieve the top cards, tolerating missing optional data."""
+        response = requests.get(
+            self.base_url + f"episodes/{self.expansion.get('id')}/cards",
+            headers=self.headers,
+            params={"page": "1", "per_page": "30", "sort": "price_highest"},
+        )
+        response.raise_for_status()
+        cards_list = response.json().get('data') or []
+        os.makedirs(self.expansion_images_dir, exist_ok=True)
+        cards_dict = {}
+        for card in cards_list:
+            name = card.get('name_numbered')
+            image_url = card.get('image')
+            if not name or not image_url:
+                continue
+            prices = card.get('prices') or {}
+            tcg = prices.get('tcg_player') or {}
+            cm = prices.get('cardmarket') or {}
+            price = positive_price(tcg.get('market_price'))
+            source = tcg
+            if price is None:
+                price = positive_price(cm.get('lowest_near_mint'))
+                source = cm
 
-            response = requests.get(self.base_url + f"episodes/{self.expansion.get('id')}/cards", 
-                                headers=self.headers,
-                                params=querystring)
-            
-            if response.status_code == 200:
-                
-                cards_list = response.json().get('data', [])
-                
-            
-        except requests.exceptions.RequestException as e:
-            print('Problem retrieving all expansions list for pokemon cards: ', e)
-            
-        try:
-            
-            cards_dict = {}
-            for card in cards_list:
-                print(card)
-                tcg_price = card.get('prices', {}).get('tcg_player', {}).get('market_price')
-                cm_price = card.get('prices', {}).get('cardmarket', {}).get('lowest_near_mint')
+            image_url = image_url.replace('\\/', '/')
+            image_response = requests.get(image_url)
+            image_response.raise_for_status()
+            # Keep generated filenames inside the image directory.
+            filename = name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+            image_path = os.path.join(self.expansion_images_dir, filename + '.png')
+            with open(image_path, 'wb') as image_file:
+                image_file.write(image_response.content)
+            cards_dict[name] = {
+                'imageUrl': image_url,
+                'marketPrice': price if price is not None else 0,
+                'currency': source.get('currency') or 'EUR',
+                'imgPath': image_path,
+            }
+            if len(cards_dict) >= 20:
+                break
+        return dict(sorted(cards_dict.items(), key=lambda item: item[1]['marketPrice']))
 
-                price = tcg_price if tcg_price not in (None, '') else (cm_price if cm_price not in (None, '') else 0)
-                
-                image_path = download_image(card.get('image').replace('\\/', '/'), card.get('name_numbered').replace(' ', '_'))
-                cards_dict[card.get('name_numbered')] = {
-                    'imageUrl': card.get('image').replace('\\/', '/'),
-                    'marketPrice': price,
-                    'imgPath': image_path
-                }
-                
-                if len(list(cards_dict.items())) >= 20:
-                    break
-
-            return dict(sorted(cards_dict.items(), key=lambda item: float(item[1]['marketPrice'] or 0))[:20])
-            
-        except Exception as e:
-            
-            return {}
-            
-            
     def get_expansion(self):
         """Retrieve a random expansion ID."""
         
@@ -123,9 +105,20 @@ class TCGApi:
                     
                     for expansion in data.get('data', []):
                         
+                        # Upcoming sets may have neither artwork nor cards. Counts are
+                        # not reliable: released sets can also report cards_total=0.
+                        if not expansion.get('logo'):
+                            continue
+                        released_at = expansion.get('released_at')
+                        if released_at:
+                            try:
+                                if datetime.strptime(released_at, '%Y-%m-%d').date() > datetime.now().date():
+                                    continue
+                            except ValueError:
+                                continue
                         if expansion.get('name') not in self.state.get('used_expansions', []):
                             
-                            self.state.get('used_expansions', []).append(expansion.get('name'))
+                            self.state.setdefault('used_expansions', []).append(expansion.get('name'))
                             self.update_state()
                             return expansion
                     
@@ -169,37 +162,21 @@ class TCGApi:
             print(e)
             
     def get_detail_expansion(self):
-        
-        try:
-            response = requests.get(self.base_url + f"episodes/{self.expansion.get('id')}", 
-                                headers=self.headers)
+        """Download the listing's logo without spending a detail API request."""
+        logo_url = self.expansion.get('logo')
+        if not logo_url:
+            return None
+        logo_url = logo_url.replace('\\/', '/')
+        name = self.expansion.get('name') or str(self.expansion['id'])
+        filename = name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+        response = requests.get(logo_url)
+        response.raise_for_status()
+        os.makedirs(self.expansion_images_dir, exist_ok=True)
+        path = os.path.join(self.expansion_images_dir, filename + '_LOGO.png')
+        with open(path, 'wb') as image_file:
+            image_file.write(response.content)
+        return path
 
-            logo_url = response.json().get('data', {}).get('logo', '').replace('\\/', '/')
-            expansion_name = response.json().get('data', {}).get('name', '').replace(' ', '_')
-            
-            if not logo_url: raise Exception('No Logo found for this expansion set.')
-            
-        except Exception as e:
-            raise e
-        
-        try:
-            response = requests.get(logo_url, headers=self.headers)
-            
-            if response.status_code == 200:
-                
-                os.makedirs(self.expansion_images_dir, exist_ok=True)
-                
-                expansion_path = f'{self.expansion_images_dir}/{expansion_name}_LOGO.png'
-                
-                with open(expansion_path, 'wb') as f:
-                    f.write(response.content)
-                
-                return expansion_path
-            
-        except Exception as e:
-            raise e
-    
-        
     def get_cards_expansion(self):
         """Get the cards from the expansion."""
 
@@ -212,6 +189,8 @@ class TCGApi:
                 raise Exception("No more unused expansions available.")
 
             self.expansion_image_path = self.get_detail_expansion()
+            if not self.expansion_image_path:
+                continue
             self.cards = self.retrieve_cards_list()
 
             if len(self.cards) >= 15:
