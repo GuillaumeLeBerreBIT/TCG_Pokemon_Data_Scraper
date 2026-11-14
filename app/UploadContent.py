@@ -78,6 +78,20 @@ class UploadContentYouTube:
         
         return build(self.API_SERVICE_NAME, self.API_VERSION, credentials=self.CREDENTIALS)
     
+    def video_title(self):
+        """Keep YouTube metadata valid while retaining the expansion and date."""
+        name = ' '.join(''.join(
+            char for char in self.set_expansion
+            if char not in '<>' and (char.isprintable() or char.isspace())
+        ).split()) or 'Pokémon'
+        prefix = f'Top {self.card_count} Most Expensive '
+        suffix = f' Cards ({datetime.now():%B %Y})'
+        budget = 100 - len(prefix) - len(suffix)
+        if len(name) > budget:
+            name = name[:budget - 1].rstrip() + '…'
+        # Hashtags remain in the description rather than consuming title space.
+        return prefix + name + suffix
+
     def initialize_upload(self, youtube):
         
         artist, song = self.split_artist_song(self.artist_song)
@@ -85,7 +99,7 @@ class UploadContentYouTube:
         
         body=dict(
             snippet=dict(
-                title=f'Top {self.card_count} Most Expensive {self.set_expansion} Cards ({datetime.strftime(datetime.now(), "%B %Y")}) #pokemon #tcg #shorts',
+                title=self.video_title(),
                 description=textwrap.dedent(f"""
                 Which card from {self.set_expansion} is worth the most right now? Here are the Top {self.card_count} Most Expensive Cards ranked by market price! 💎
 
@@ -126,7 +140,7 @@ class UploadContentYouTube:
             return result
         except Exception as e:
             
-            raise f'An HTTP error {e} occurred: {e}' 
+            raise RuntimeError(f'YouTube upload failed: {e}') from e
         
     def list_channels(self):
         youtube = self.authenticate_youtube()
