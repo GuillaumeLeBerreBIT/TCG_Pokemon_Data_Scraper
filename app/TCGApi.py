@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 import json
 import os 
-from app.pricing import positive_price
+from app.pricing import positive_price, psa10_price
 
 class TCGApi:
     
@@ -82,6 +82,7 @@ class TCGApi:
                 'marketPrice': price if price is not None else 0,
                 'currency': source.get('currency') or 'EUR',
                 'imgPath': image_path,
+                'psa10Price': psa10_price(card),
             }
             if len(cards_dict) >= 20:
                 break

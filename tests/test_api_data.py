@@ -60,6 +60,7 @@ class ApiDataTests(unittest.TestCase):
             cards.append({'name_numbered': f'Card {i}', 'image': f'https://example.invalid/{i}',
                           'prices': {'tcg_player': {'market_price': tcg, 'currency': 'EUR'},
                                      'cardmarket': {'lowest_near_mint': cm, 'currency': 'EUR'}}})
+        cards[0]['prices']['ebay'] = {'currency': 'USD', 'graded': {'psa': {'10': {'median_price': 622.8, 'sample_size': 5}}}}
         cards.append({'name_numbered': 'No image', 'image': None})
         response = Mock(status_code=200)
         response.json.return_value = {'data': cards}
@@ -70,6 +71,8 @@ class ApiDataTests(unittest.TestCase):
         self.assertEqual(result['Card 3']['marketPrice'], 170)
         self.assertEqual(result['Card 4']['marketPrice'], 0)
         self.assertEqual(result['Card 1']['currency'], 'EUR')
+        self.assertEqual(result['Card 1']['psa10Price'], 622.8)
+        self.assertIsNone(result['Card 2']['psa10Price'])
         self.assertEqual(list(result)[-1], 'Card 2')
 
     @patch('app.TCGApi.requests.get')

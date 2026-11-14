@@ -25,3 +25,15 @@ def format_card_price(card):
     currency = card.get('currency') or 'USD'
     symbol = {'EUR': '€', 'USD': '$', 'GBP': '£'}.get(currency)
     return f'{symbol}{price:.2f}' if symbol else f'{price:.2f} {currency}'
+
+
+def psa10_price(card):
+    """Use the existing eBay USD median only when at least five sales support it."""
+    ebay = (card.get('prices') or {}).get('ebay') or {}
+    if ebay.get('currency') != 'USD':
+        return None
+    entry = (((ebay.get('graded') or {}).get('psa') or {}).get('10') or {})
+    samples = positive_price(entry.get('sample_size'))
+    if samples is None or samples < 5:
+        return None
+    return positive_price(entry.get('median_price'))
